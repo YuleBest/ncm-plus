@@ -28,9 +28,15 @@ export const useLayoutStore = defineStore('layout', () => {
     }
   }
 
+  const closeSidebar = () => {
+    isSidebarCollapsed.value = true
+    localStorage.setItem('isSidebarCollapsed', 'true')
+  }
+
   return {
     isSidebarCollapsed,
     toggleSidebar,
+    closeSidebar,
     handleResize,
   }
 })

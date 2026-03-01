@@ -21,6 +21,13 @@ onUnmounted(() => {
 
 <template>
   <div class="app-layout-wrapper">
+    <!-- 侧边栏遮罩层（仅移动端侧边栏展开时出现） -->
+    <div
+      class="sidebar-overlay"
+      :class="{ 'is-active': !layoutStore.isSidebarCollapsed }"
+      @click="layoutStore.closeSidebar"
+    ></div>
+
     <!-- 侧边栏 -->
     <Sidebar :collapsed="layoutStore.isSidebarCollapsed" />
 
@@ -66,5 +73,30 @@ onUnmounted(() => {
   overflow-y: auto;
   padding: 16px;
   scroll-behavior: smooth;
+}
+
+/* 侧边栏遮罩层（隐形，仅用于捕获点击） */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: transparent;
+  /* 位于内容之上，侧边栏(z=20)之下 */
+  z-index: 15;
+}
+
+/* 仅在窄屏下激活遮罩层逻辑 */
+@media (max-width: 768px) {
+  .sidebar-overlay {
+    display: block;
+    pointer-events: none;
+  }
+
+  .sidebar-overlay.is-active {
+    pointer-events: auto;
+  }
 }
 </style>
