@@ -38,6 +38,7 @@
     "npm-run-all2": "^8.0.4",
     "oxlint": "~1.50.0",
     "prettier": "3.8.1",
+    "sass-embedded": "^1.97.3",
     "typescript": "~5.9.3",
     "unplugin-vue-router": "^0.19.2",
     "vite": "beta",
