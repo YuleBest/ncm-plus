@@ -13,7 +13,14 @@
     "lint": "run-s lint:*",
     "lint:oxlint": "oxlint . --fix",
     "lint:eslint": "eslint . --fix --cache",
-    "format": "prettier --write --experimental-cli src/"
+    "format": "prettier --write --experimental-cli src/",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,vue,css,scss,tsx,md}": [
+      "echo \"Prettier formatting...\"",
+      "prettier --write"
+    ]
   },
   "dependencies": {
     "axios": "^1.13.6",
@@ -34,8 +41,10 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-oxlint": "~1.50.0",
     "eslint-plugin-vue": "~10.8.0",
+    "husky": "^9.1.7",
     "jiti": "^2.6.1",
     "jsdom": "^28.1.0",
+    "lint-staged": "^16.3.1",
     "npm-run-all2": "^8.0.4",
     "oxlint": "~1.50.0",
     "prettier": "3.8.1",
