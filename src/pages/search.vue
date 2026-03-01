@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import HomeLayout from '@/layouts/Home.vue'
+import Input from '@/components/ui/Input.vue'
+import Button from '@/components/ui/Button.vue'
 import { searchMusic, type Song } from '@/api/search/searchMusic'
 
 const keyword = ref('')
@@ -46,16 +48,16 @@ const formatDuration = (ms: number) => {
   <HomeLayout>
     <div class="search-page">
       <div class="search-header">
-        <input
+        <Input
           v-model="keyword"
           type="text"
           placeholder="搜索音乐、歌手、专辑..."
           class="search-input"
           @keyup.enter="handleSearch"
         />
-        <button class="search-btn" @click="handleSearch" :disabled="loading">
+        <Button @click="handleSearch" :disabled="loading">
           {{ loading ? '搜索中...' : '搜索' }}
-        </button>
+        </Button>
       </div>
 
       <div v-if="errorMsg" class="error-msg">
@@ -98,39 +100,6 @@ const formatDuration = (ms: number) => {
     .search-input {
       flex: 1;
       max-width: 400px;
-      padding: 12px 16px;
-      border: 1px solid rgba(0, 0, 0, 0.1);
-      border-radius: 8px;
-      font-size: 16px;
-      outline: none;
-      transition:
-        border-color 0.2s,
-        box-shadow 0.2s;
-
-      &:focus {
-        border-color: #ff5a5f;
-        box-shadow: 0 0 0 2px rgba(255, 90, 95, 0.1);
-      }
-    }
-
-    .search-btn {
-      padding: 0 24px;
-      background-color: #ff5a5f;
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-size: 15px;
-      cursor: pointer;
-      transition: background-color 0.2s;
-
-      &:hover:not(:disabled) {
-        background-color: #e55055;
-      }
-
-      &:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-      }
     }
   }
 
