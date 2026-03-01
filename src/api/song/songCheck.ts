@@ -8,10 +8,6 @@ export interface SongCheckParams {
 
 export interface SongCheckResponse {
   code: number
-  data: SongCheckData[]
-}
-
-export interface SongCheckData {
   success: boolean // true 可用, false 不可用
   message: string
   [key: string]: unknown

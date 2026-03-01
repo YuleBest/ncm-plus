@@ -3,6 +3,7 @@ import { onMounted, onUnmounted } from 'vue'
 import Sidebar from '@/components/layout/Sidebar.vue'
 import TopBar from '@/components/layout/TopBar.vue'
 import BottomBar from '@/components/layout/BottomBar.vue'
+import MiniPlayer from '@/components/player/MiniPlayer.vue'
 import { useLayoutStore } from '@/stores/layout'
 
 const layoutStore = useLayoutStore()
@@ -43,6 +44,9 @@ onUnmounted(() => {
 
       <!-- 底栏 -->
       <BottomBar />
+
+      <!-- 全局浮动迷你播放器 -->
+      <MiniPlayer />
     </div>
   </div>
 </template>

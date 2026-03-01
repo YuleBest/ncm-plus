@@ -15,11 +15,11 @@ export interface SongDetail {
   id: number
   name: string // 歌曲标题
   t: 0 | 1 | 2 // type: 0: 一般类型; 1: 通过云盘上传的音乐，网易云不存在公开对应, 如果没有权限将不可用; 2: 通过云盘上传的音乐，网易云存在公开对应, 如果没有权限则只能看到信息，但无法直接获取到文件
-  ar: {
+  ar: Array<{
     id: number
     name: string
     [key: string]: unknown
-  } // 艺术家
+  }> // 艺术家
   al: {
     id: number
     name: string

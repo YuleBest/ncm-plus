@@ -25,6 +25,7 @@ export interface Song {
     picId: number
   }
   duration: number // 时长
+  fee: number // 0: 免费; 1: VIP 歌曲; 4: 购买专辑; 8: 非会员可免费播放低音质，会员可播放高音质及下载
   [key: string]: unknown // 允许其他不常用的字段存在
 }
 
