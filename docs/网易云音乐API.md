@@ -436,10 +436,10 @@ export PORT=9000
 
 ```javascript
 // 例子
-const url = `http://localhost:3000/song/url?id=33894312&proxy=http://121.196.226.246:84`;
+const url = `http://localhost:3000/song/url?id=33894312&proxy=http://121.196.226.246:84`
 fetch(url).then(function () {
   // do what you want
-});
+})
 
 // 结果
 // {"data":[{"id":33894312,"url":"http://m10.music.126.net/20180104125640/930a968b3fb04908b733506b3833e60b/ymusic/0fd6/4f65/43ed/a8772889f38dfcb91c04da915b301617.mp3","br":320000,"size":10691439,"md5":"a8772889f38dfcb91c04da915b301617","code":200,"expi":1200,"type":"mp3","gain":-2.0E-4,"fee":0,"uf":null,"payed":0,"flag":0,"canExtend":false}],"code": 200}
@@ -452,33 +452,33 @@ v3.3.0 后支持使用 PAC 代理,如 `?proxy=http://192.168.0.1/proxy.pac`
 v3.31.0 后支持 Node.js 调用,导入的方法为`module`内的文件名,返回内容包含`status`和`body`,`status`为状态码,`body`为请求返回内容,参考`module_example` 文件夹下的 `test.js`
 
 ```js
-const { login_cellphone, user_cloud } = require("NeteaseCloudMusicApi");
+const { login_cellphone, user_cloud } = require('NeteaseCloudMusicApi')
 async function main() {
   try {
     const result = await login_cellphone({
-      phone: "手机号",
-      password: "密码",
-    });
-    console.log(result);
+      phone: '手机号',
+      password: '密码',
+    })
+    console.log(result)
     const result2 = await user_cloud({
       cookie: result.body.cookie, // 凭证
-    });
-    console.log(result2.body);
+    })
+    console.log(result2.body)
   } catch (error) {
-    console.log(error);
+    console.log(error)
   }
 }
-main();
+main()
 ```
 
 ## 支持 TypeScript
 
 ```ts
 // test.ts
-import { banner } from "NeteaseCloudMusicApi";
+import { banner } from 'NeteaseCloudMusicApi'
 banner({ type: 0 }).then((res) => {
-  console.log(res);
-});
+  console.log(res)
+})
 ```
 
 ## Docker 容器运行
@@ -4941,17 +4941,17 @@ bitrate = Math.floor(br / 1000)
 let local = encodeURIComponent(
   JSON.stringify([
     {
-      name: "アイニーブルー", // 歌曲名称
-      artist: "ZLMS", // 艺术家名称
-      album: "アイニーブルー", // 专辑名称
+      name: 'アイニーブルー', // 歌曲名称
+      artist: 'ZLMS', // 艺术家名称
+      album: 'アイニーブルー', // 专辑名称
     },
     {
-      name: "ファンタズマ",
-      artist: "sasakure.UK",
-      album: "未来イヴ",
+      name: 'ファンタズマ',
+      artist: 'sasakure.UK',
+      album: '未来イヴ',
     },
   ]),
-);
+)
 ```
 
 **调用例子 :** `/playlist/import/name/task/create?local=${local}`
@@ -4962,7 +4962,7 @@ let local = encodeURIComponent(
 
 ```javascript
 let text = encodeURIComponent(`アイニーブルー ZLMS
-ファンタズマ sasakure.UK`);
+ファンタズマ sasakure.UK`)
 ```
 
 **调用例子 :** `/playlist/import/name/task/create?text=${text}`
@@ -4974,10 +4974,10 @@ let text = encodeURIComponent(`アイニーブルー ZLMS
 ```javascript
 let link = encodeURIComponent(
   JSON.stringify([
-    "https://i.y.qq.com/n2/m/share/details/taoge.html?id=7716341988&hosteuin=",
-    "https://i.y.qq.com/n2/m/share/details/taoge.html?id=8010042041&hosteuin=",
+    'https://i.y.qq.com/n2/m/share/details/taoge.html?id=7716341988&hosteuin=',
+    'https://i.y.qq.com/n2/m/share/details/taoge.html?id=8010042041&hosteuin=',
   ]),
-);
+)
 ```
 
 歌单链接来源:
@@ -5066,11 +5066,11 @@ let data = encodeURIComponent(
     {
       translateType: 1,
       startTimeStamp: 800,
-      translateLyricsText: "让我逃走吧、声音已经枯萎",
-      originalLyricsText: "逃がし てくれって声を枯らした",
+      translateLyricsText: '让我逃走吧、声音已经枯萎',
+      originalLyricsText: '逃がし てくれって声を枯らした',
     },
   ]),
-);
+)
 ```
 
 若需要修改摘录信息, 则需要填入参数`markId`, 修改对应的摘录信息
