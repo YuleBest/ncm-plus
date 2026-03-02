@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import { Menu as iMenu, Search as iSearch } from 'lucide-vue-next'
+import { Menu as iMenu, Search as iSearch, Home as iHome } from 'lucide-vue-next'
 
 defineEmits<{
   (e: 'toggle-sidebar'): void
@@ -10,15 +10,25 @@ const router = useRouter()
 const goToSearch = () => {
   router.push('/search')
 }
+const goToHome = () => {
+  router.push('/')
+}
 </script>
 
 <template>
   <!-- 顶栏 -->
   <header class="layout-top-bar glass-effect">
-    <!-- 切换按钮 -->
-    <button class="icon-button" @click="$emit('toggle-sidebar')" title="切换侧边栏">
-      <iMenu />
-    </button>
+    <div class="left-actions">
+      <!-- 切换按钮 -->
+      <button class="icon-button" @click="$emit('toggle-sidebar')" title="切换侧边栏">
+        <iMenu />
+      </button>
+
+      <!-- 首页按钮 -->
+      <button class="icon-button" @click="goToHome" title="回到首页">
+        <iHome />
+      </button>
+    </div>
 
     <div class="top-bar-middle"></div>
 
@@ -40,6 +50,12 @@ const goToSearch = () => {
   border-bottom: 1px solid rgba(0, 0, 0, 0.04);
   z-index: 10;
   flex-shrink: 0;
+}
+
+.left-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* 顶栏中间间距 */

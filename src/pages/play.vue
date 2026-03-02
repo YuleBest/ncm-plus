@@ -9,8 +9,15 @@ const route = useRoute()
 const playerStore = usePlayerStore()
 
 // 返回上一页
+const isExiting = ref(false)
+const isEntering = ref(true)
+
 const goBack = () => {
-  router.back()
+  if (isExiting.value) return
+  isExiting.value = true
+  setTimeout(() => {
+    router.back()
+  }, 300)
 }
 
 // 挂载时检查 URL 参数
@@ -23,6 +30,16 @@ onMounted(() => {
       playerStore.playSong(id)
     }
   }
+
+  // 刚进入页面时尝试立即定位歌词
+  scrollToCurrentLyric(true)
+
+  // 触发进入动画
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      isEntering.value = false
+    })
+  })
 })
 
 // 拖拽进度条相关
@@ -160,15 +177,14 @@ watch(isMobileCoverMode, (newVal) => {
     scrollToCurrentLyric(true)
   }
 })
-
-onMounted(() => {
-  // 刚进入页面时尝试立即定位歌词
-  scrollToCurrentLyric(true)
-})
 </script>
 
 <template>
-  <div class="play-page" v-if="playerStore.currentSong">
+  <div
+    class="play-page"
+    v-if="playerStore.currentSong"
+    :class="{ 'is-exiting': isExiting, 'is-entering': isEntering }"
+  >
     <!-- 动态模糊背景（使用小图提升模糊性能） -->
     <div
       class="bg-blur"
@@ -361,7 +377,11 @@ onMounted(() => {
   </div>
 
   <!-- 空白状态防崩溃 -->
-  <div class="play-page empty-fallback" v-else>
+  <div
+    class="play-page empty-fallback"
+    v-else
+    :class="{ 'is-exiting': isExiting, 'is-entering': isEntering }"
+  >
     <div v-if="playerStore.isLoading" class="loading-state">
       <div class="loading-spinner"></div>
       <span>正在加载音乐...</span>
@@ -385,6 +405,15 @@ onMounted(() => {
   flex-direction: column;
   overflow: hidden;
   background-color: #222;
+  transition:
+    transform 0.35s cubic-bezier(0.33, 1, 0.68, 1),
+    opacity 0.35s cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+.play-page.is-exiting,
+.play-page.is-entering {
+  transform: translateY(100vh);
+  opacity: 0;
 }
 
 /* 动态模糊背景：利用缩放放大（类似 mipmap）和硬件加速优化高斯模糊性能 */
