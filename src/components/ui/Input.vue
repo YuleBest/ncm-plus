@@ -8,6 +8,7 @@ const modelValue = defineModel<string>()
 
 <style scoped lang="scss">
 .base-input {
+  box-sizing: border-box;
   width: 100%;
   padding: 12px 16px;
   border: 1px solid var(--color-border);

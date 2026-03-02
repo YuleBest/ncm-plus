@@ -19,7 +19,7 @@ export interface SongDetail {
     id: number
     name: string
     [key: string]: unknown
-  }> // 艺术家
+  }> // 歌手
   al: {
     id: number
     name: string

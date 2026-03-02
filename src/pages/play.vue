@@ -1,12 +1,57 @@
 <script setup lang="ts">
-import { useRoute } from 'vue-router'
-import { ChevronDown, Play, Pause, SkipBack, SkipForward } from 'lucide-vue-next'
+import { useRoute, useRouter } from 'vue-router'
+import {
+  ChevronDown,
+  Play,
+  Pause,
+  SkipBack,
+  SkipForward,
+  MessageCircle,
+  Heart,
+} from 'lucide-vue-next'
 import { usePlayerStore } from '@/stores/player'
+import CommentPanel from '@/components/player/CommentPanel.vue'
+import { getSongDetail as getRedCount } from '@/api/song/red/count'
 import { ref, watch, nextTick, computed, onMounted } from 'vue'
 import { formatSeconds as formatTime } from '@/utils/format'
 
 const route = useRoute()
+const router = useRouter()
 const playerStore = usePlayerStore()
+
+// 评论面板
+const showComments = ref(false)
+const commentCount = ref(0)
+const heartCountDesc = ref('')
+
+const fmtCommentBadge = computed(() => {
+  if (commentCount.value <= 0) return ''
+  if (commentCount.value >= 10000)
+    return (commentCount.value / 10000).toFixed(1).replace(/\.0$/, '') + '万'
+  if (commentCount.value > 999) return '999+'
+  return String(commentCount.value)
+})
+
+const fetchHeartCount = async (id: number) => {
+  if (!id) return
+  try {
+    const res = await getRedCount({ id })
+    if (res.data.code === 200) {
+      heartCountDesc.value = res.data.data.countDesc || String(res.data.data.count)
+    }
+  } catch {
+    // 静默失败
+  }
+}
+
+watch(
+  () => playerStore.currentSong?.id,
+  (id) => {
+    heartCountDesc.value = ''
+    if (id) fetchHeartCount(id)
+  },
+  { immediate: true },
+)
 
 // 返回上一页
 const isExiting = ref(false)
@@ -18,6 +63,16 @@ const goBack = () => {
   setTimeout(() => {
     playerStore.closePlayer()
   }, 360) // 动画时长 350ms，留 10ms 缓冲确保动画完成后再关闭覆盖层
+}
+
+// 跳转到歌手页（关闭播放器 → 导航）
+const goToArtist = (artistId: number) => {
+  if (!artistId) return
+  isExiting.value = true
+  setTimeout(() => {
+    playerStore.closePlayer()
+    router.push(`/artist/${artistId}`)
+  }, 360)
 }
 
 // 挂载时检查 URL 参数
@@ -206,7 +261,12 @@ const cycleQuality = () => {
       </button>
       <div class="header-info mobile-only">
         <div class="song-title">{{ playerStore.currentSong.name }}</div>
-        <div class="song-artist">{{ playerStore.currentSong.ar?.[0]?.name }}</div>
+        <div class="song-artist">
+          <template v-for="(ar, i) in playerStore.currentSong.ar" :key="ar.id">
+            <span class="artist-link" @click.stop="goToArtist(ar.id)">{{ ar.name }}</span>
+            <span v-if="i < playerStore.currentSong.ar.length - 1" class="artist-sep"> / </span>
+          </template>
+        </div>
       </div>
 
       <!-- 音质切换 -->
@@ -251,7 +311,12 @@ const cycleQuality = () => {
         <div class="desktop-info desktop-only">
           <span class="song-title">{{ playerStore.currentSong.name }}</span>
           <span class="song-dash">-</span>
-          <span class="song-artist">{{ playerStore.currentSong.ar?.[0]?.name }}</span>
+          <span class="song-artist">
+            <template v-for="(ar, i) in playerStore.currentSong.ar" :key="ar.id">
+              <span class="artist-link" @click.stop="goToArtist(ar.id)">{{ ar.name }}</span>
+              <span v-if="i < playerStore.currentSong.ar.length - 1" class="artist-sep"> / </span>
+            </template>
+          </span>
         </div>
 
         <!-- 移动端短歌词 (大封面模式下显示) -->
@@ -281,6 +346,18 @@ const cycleQuality = () => {
           </div>
           <div class="trial-notice" v-if="playerStore.currentSong.fee === 1">
             VIP 歌曲，当前仅支持试听前 30 秒
+          </div>
+
+          <!-- 评论入口 (移动端) -->
+          <div class="comment-row-mobile">
+            <button class="comment-trigger-mobile" @click="showComments = true">
+              <MessageCircle :size="17" />
+              <span v-if="fmtCommentBadge" class="comment-fab-badge">{{ fmtCommentBadge }}</span>
+            </button>
+            <div class="mobile-heart-stat" v-if="heartCountDesc">
+              <Heart :size="12" fill="currentColor" class="stat-heart" />
+              <span>{{ heartCountDesc }}</span>
+            </div>
           </div>
 
           <!-- 进度条 -->
@@ -432,6 +509,31 @@ const cycleQuality = () => {
       <span>未加载音乐，点击返回</span>
     </button>
   </div>
+
+  <!-- PC 评论入口悬浮按钮组 -->
+  <div class="comment-fab-group desktop-only" v-if="playerStore.currentSong">
+    <button
+      class="comment-fab"
+      :class="{ active: showComments }"
+      @click="showComments = !showComments"
+      title="查看评论"
+    >
+      <MessageCircle :size="20" />
+      <span v-if="fmtCommentBadge" class="comment-fab-badge">{{ fmtCommentBadge }}</span>
+    </button>
+    <div class="comment-fab-stats" v-if="heartCountDesc">
+      <Heart :size="11" fill="currentColor" class="stat-heart" />
+      <span>{{ heartCountDesc }}</span>
+    </div>
+  </div>
+
+  <!-- 评论面板 -->
+  <CommentPanel
+    :song-id="playerStore.currentSong?.id ?? 0"
+    :visible="showComments"
+    @close="showComments = false"
+    @update:count="commentCount = $event"
+  />
 </template>
 
 <style lang="scss" scoped>
@@ -505,6 +607,94 @@ const cycleQuality = () => {
   align-items: center;
   justify-content: center;
 }
+/* PC 评论入口悬浮按钮组 */
+.comment-fab-group {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 550;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.comment-fab {
+  position: relative;
+  overflow: visible;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: rgba(255, 255, 255, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    color 0.2s,
+    border-color 0.2s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+
+  &.active {
+    background: rgba(255, 255, 255, 0.22);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.35);
+  }
+}
+
+.comment-fab-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 18px;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+.comment-fab-stats {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 11px;
+  white-space: nowrap;
+  pointer-events: none;
+
+  .stat-heart {
+    color: #ff5a5f;
+    flex-shrink: 0;
+  }
+}
+
 .quality-switcher {
   display: flex;
   flex-direction: column;
@@ -555,6 +745,21 @@ const cycleQuality = () => {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.artist-link {
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+  &:hover {
+    opacity: 0.8;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  &:active {
+    opacity: 0.6;
+  }
+}
+.artist-sep {
+  pointer-events: none;
+}
 
 /* 桌面端特有信息样式 */
 .desktop-info {
@@ -585,6 +790,9 @@ const cycleQuality = () => {
     font-weight: 400;
     text-align: center;
     max-width: 30%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 
@@ -741,6 +949,59 @@ const cycleQuality = () => {
   opacity: 0;
   cursor: pointer;
   z-index: 2;
+}
+
+/* 移动端评论入口按钮：默认隐藏，仅在移动端以 flex 显示 */
+.comment-row-mobile {
+  display: none;
+}
+
+.comment-trigger-mobile {
+  position: relative;
+  overflow: visible;
+}
+
+@media (max-width: 768px) {
+  .comment-row-mobile {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .comment-trigger-mobile {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.45);
+    padding: 6px;
+    cursor: pointer;
+    transition: color 0.2s;
+
+    &:active {
+      color: rgba(255, 255, 255, 0.75);
+    }
+
+    .comment-fab-badge {
+      top: 0;
+      right: 0;
+    }
+  }
+
+  .mobile-heart-stat {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 12px;
+    pointer-events: none;
+
+    .stat-heart {
+      color: #ff5a5f;
+      opacity: 0.7;
+    }
+  }
 }
 
 /* 控制按钮组 */

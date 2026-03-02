@@ -1,3 +1,5 @@
+// 歌单详情
+
 import request from '../request'
 
 export interface PlaylistDetailParams {

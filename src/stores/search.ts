@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { searchMusic, type Song } from '@/api/search'
+import { searchMusic, searchArtists, type Song, type ArtistResult } from '@/api/search'
 import { getHotSearchDetail, type hotSearchDetail } from '@/api/search/hot'
 import { getSuggestDetail, type SuggestResult } from '@/api/search/suggest'
 
@@ -8,6 +8,7 @@ export const useSearchStore = defineStore('search', () => {
   // ── 搜索结果 ────────────────────────────────────────────────
   const keyword = ref('')
   const songs = ref<Song[]>([])
+  const artists = ref<ArtistResult[]>([])
   const loading = ref(false)
   const errorMsg = ref('')
 
@@ -15,6 +16,7 @@ export const useSearchStore = defineStore('search', () => {
     const searchKeyword = query ?? keyword.value
     if (!searchKeyword.trim()) {
       songs.value = []
+      artists.value = []
       return
     }
 
@@ -22,12 +24,22 @@ export const useSearchStore = defineStore('search', () => {
     errorMsg.value = ''
 
     try {
-      const res = await searchMusic({ keywords: searchKeyword })
-      if (res.data?.code === 200) {
-        songs.value = res.data.result?.songs || []
+      // 并行搜索歌曲（type=1）与歌手（type=100）
+      const [songRes, artistRes] = await Promise.all([
+        searchMusic({ keywords: searchKeyword, type: 1 }),
+        searchArtists({ keywords: searchKeyword }),
+      ])
+
+      if (songRes.data?.code === 200) {
+        songs.value = songRes.data.result?.songs || []
         if (query) keyword.value = query
       } else {
         errorMsg.value = '搜索失败：接口错误'
+      }
+
+      if (artistRes.data?.code === 200) {
+        // 只取前 5 个歌手结果
+        artists.value = (artistRes.data.result?.artists || []).slice(0, 5)
       }
     } catch (err: unknown) {
       const errorMsgText = err instanceof Error ? err.message : '未知错误'
@@ -40,6 +52,7 @@ export const useSearchStore = defineStore('search', () => {
   const clearSearch = () => {
     keyword.value = ''
     songs.value = []
+    artists.value = []
     errorMsg.value = ''
   }
 
@@ -92,6 +105,7 @@ export const useSearchStore = defineStore('search', () => {
     // 搜索结果
     keyword,
     songs,
+    artists,
     loading,
     errorMsg,
     performSearch,

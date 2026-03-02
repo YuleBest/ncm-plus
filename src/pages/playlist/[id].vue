@@ -3,7 +3,8 @@ defineOptions({ name: 'PlaylistDetailPage' })
 import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getPlaylistDetail, type PlaylistDetail } from '@/api/playlist/detail'
-import { getSongDetail, type SongDetail } from '@/api/song/detail'
+import { getPlaylistTracks } from '@/api/playlist/track/all'
+import type { SongDetail } from '@/api/song/detail'
 import { usePlayerStore } from '@/stores/player'
 import { PlayCircle, Play, ChevronLeft } from 'lucide-vue-next'
 import HomeLayout from '@/layouts/Home.vue'
@@ -16,10 +17,15 @@ const router = useRouter()
 const playerStore = usePlayerStore()
 
 // 响应式参数：路由切换时自动更新
+const PAGE_SIZE = 50
+
 const playlistId = computed(() => (route.params as Record<string, string>).id ?? '')
 const isLoading = ref(true)
+const isLoadingMore = ref(false)
 const playlistInfo = ref<PlaylistDetail | null>(null)
 const completeTracks = ref<SongDetail[]>([])
+const currentOffset = ref(0)
+const hasMore = ref(false)
 
 const fetchPlaylistData = async () => {
   const id = playlistId.value
@@ -28,6 +34,8 @@ const fetchPlaylistData = async () => {
   // 每次加载前先清空旧数据，避免短暂显示上一个歌单的内容
   playlistInfo.value = null
   completeTracks.value = []
+  currentOffset.value = 0
+  hasMore.value = false
 
   try {
     isLoading.value = true
@@ -35,32 +43,44 @@ const fetchPlaylistData = async () => {
     if (!detailRes.data?.playlist) throw new Error('无法获取歌单详情')
 
     playlistInfo.value = detailRes.data.playlist
-    const trackIdsObj = playlistInfo.value.trackIds || []
+    const totalCount = playlistInfo.value.trackCount ?? 0
 
-    const trackIds = trackIdsObj.map((t) => t.id)
-    if (trackIds.length > 0) {
-      const chunks: number[][] = []
-      const chunkSize = 500
-      for (let i = 0; i < trackIds.length; i += chunkSize) {
-        chunks.push(trackIds.slice(i, i + chunkSize))
+    if (totalCount > 0) {
+      const res = await getPlaylistTracks({ id: Number(id), limit: PAGE_SIZE, offset: 0 })
+      if (res.data?.songs) {
+        completeTracks.value = res.data.songs
+        currentOffset.value = res.data.songs.length
+        hasMore.value = currentOffset.value < totalCount
       }
-
-      const requests = chunks.map((chunk) => getSongDetail({ ids: chunk.join(',') }))
-      const responses = await Promise.all(requests)
-
-      const allSongs: SongDetail[] = []
-      responses.forEach((res) => {
-        if (res.data?.songs) {
-          allSongs.push(...res.data.songs)
-        }
-      })
-
-      completeTracks.value = allSongs
     }
   } catch (error) {
     console.error('Failed to load playlist:', error)
   } finally {
     isLoading.value = false
+  }
+}
+
+const loadMoreTracks = async () => {
+  const id = playlistId.value
+  if (!id || isLoadingMore.value || !hasMore.value) return
+
+  try {
+    isLoadingMore.value = true
+    const totalCount = playlistInfo.value?.trackCount ?? 0
+    const res = await getPlaylistTracks({
+      id: Number(id),
+      limit: PAGE_SIZE,
+      offset: currentOffset.value,
+    })
+    if (res.data?.songs) {
+      completeTracks.value.push(...res.data.songs)
+      currentOffset.value += res.data.songs.length
+      hasMore.value = currentOffset.value < totalCount
+    }
+  } catch (error) {
+    console.error('Failed to load more tracks:', error)
+  } finally {
+    isLoadingMore.value = false
   }
 }
 
@@ -96,7 +116,7 @@ watch(
       <div
         v-if="playlistInfo"
         class="bg-blur"
-        :style="{ backgroundImage: `url(${playlistInfo.coverImgUrl}?param=100y100)` }"
+        :style="{ backgroundImage: `url(${playlistInfo.coverImgUrl}?param=30y30)` }"
       ></div>
       <!-- 遮罩层：颜色跟随主题 -->
       <div v-if="playlistInfo" class="bg-mask"></div>
@@ -156,7 +176,7 @@ watch(
             </div>
             <div class="play-text">
               <span class="main">播放全部</span>
-              <span class="count">{{ completeTracks.length }} 首</span>
+              <span class="count">{{ playlistInfo.trackCount ?? completeTracks.length }} 首</span>
             </div>
           </div>
 
@@ -170,12 +190,24 @@ watch(
               :artist-text="song.ar?.map((a) => a.name).join(' / ') ?? ''"
               :album-name="song.al?.name"
               :alia="song.alia"
-              :cover-url="song.al?.picUrl + '?param=100y100'"
+              :cover-url="song.al?.picUrl + '?param=50y50'"
               :is-vip="song.fee === 1"
               :playing="playerStore.currentSong?.id === song.id"
               :show-more="true"
               @click="playSong(index)"
             />
+          </div>
+
+          <!-- 加载更多 -->
+          <div v-if="hasMore || isLoadingMore" class="load-more-area">
+            <button class="load-more-btn" :disabled="isLoadingMore" @click="loadMoreTracks">
+              <span v-if="isLoadingMore" class="load-more-spinner"></span>
+              <span>{{
+                isLoadingMore
+                  ? '加载中...'
+                  : `加载更多（已加载 ${completeTracks.length} / ${playlistInfo?.trackCount ?? '?'} 首）`
+              }}</span>
+            </button>
           </div>
         </div>
       </div>
@@ -487,6 +519,52 @@ watch(
       padding-right: 40px;
     }
   }
+}
+
+/* ── 加载更多 ─────────────────────────────────────────────── */
+.load-more-area {
+  display: flex;
+  justify-content: center;
+  padding: 20px 20px 8px;
+}
+
+.load-more-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 24px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+
+  &:hover:not(:disabled) {
+    background-color: var(--color-bg-elevated);
+    color: var(--color-text);
+    border-color: var(--color-border-strong, var(--color-border));
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+}
+
+.load-more-spinner {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
 }
 
 /* ── 加载动画（icon-spin 供 Loader2 使用） ─────────────────── */

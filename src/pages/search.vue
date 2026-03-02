@@ -1,20 +1,26 @@
 <script setup lang="ts">
 defineOptions({ name: 'SearchPage' })
 import { onMounted, onUnmounted, ref, computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import HomeLayout from '@/layouts/Home.vue'
 import Input from '@/components/ui/Input.vue'
 import Button from '@/components/ui/Button.vue'
 import SongItem from '@/components/song/SongItem.vue'
-import { Flame, Music2, User, Disc } from 'lucide-vue-next'
+import { Flame, Music2, User, Disc, ListMusic, ArrowRight } from 'lucide-vue-next'
 import { usePlayerStore } from '@/stores/player'
 import { useSearchStore } from '@/stores/search'
+import { extractPlaylistId } from '@/utils/playlist'
 
 const playerStore = usePlayerStore()
 const searchStore = useSearchStore()
+const router = useRouter()
 
 onMounted(() => {
   searchStore.fetchHotSearch()
 })
+
+// ── 歌单直达检测 ─────────────────────────────────────────────
+const detectedPlaylistId = computed(() => extractPlaylistId(searchStore.keyword))
 
 // ── 搜索建议 ────────────────────────────────────────────────
 const inputFocused = ref(false)
@@ -26,8 +32,10 @@ const hasSuggestions = computed(() => {
   return !!(r.songs?.length || r.artists?.length || r.albums?.length)
 })
 
+// 已识别为歌单链接时不展示搜索建议
 const showSuggest = computed(
   () =>
+    !detectedPlaylistId.value &&
     inputFocused.value &&
     !!searchStore.keyword.trim() &&
     (searchStore.suggestLoading || hasSuggestions.value),
@@ -41,7 +49,8 @@ watch(
   () => searchStore.keyword,
   (val) => {
     if (debounceTimer) clearTimeout(debounceTimer)
-    if (!val.trim()) {
+    // 已识别为歌单链接时不触发搜索建议
+    if (!val.trim() || extractPlaylistId(val)) {
       searchStore.clearSuggestions()
       return
     }
@@ -66,6 +75,13 @@ const handleSuggestClick = (text: string) => {
 const handleSearch = async () => {
   playerStore.unlock()
   inputFocused.value = false
+
+  // 歌单链接 / ID 直达
+  if (detectedPlaylistId.value) {
+    router.push(`/playlist/${detectedPlaylistId.value}`)
+    return
+  }
+
   await searchStore.performSearch()
 }
 
@@ -79,6 +95,12 @@ const handleSongClick = (songId: number) => {
   playerStore.playSong(songId)
   playerStore.openPlayer()
 }
+
+const handleArtistClick = (artistId: number) => {
+  playerStore.unlock()
+  inputFocused.value = false
+  router.push(`/artist/${artistId}`)
+}
 </script>
 
 <template>
@@ -90,13 +112,31 @@ const handleSongClick = (songId: number) => {
           <Input
             v-model="searchStore.keyword"
             type="text"
-            placeholder="搜索音乐、歌手、专辑..."
+            placeholder="搜索音乐、歌手、专辑，或粘贴歌单链接…"
             class="search-input"
             @keyup.enter="handleSearch"
             @focus="onFocus"
             @blur="onBlur"
             @keydown.escape="closeSuggest"
           />
+
+          <!-- 歌单直达提示（识别到链接/ID 时替换搜索建议下拉） -->
+          <Transition name="suggest">
+            <div v-if="detectedPlaylistId && inputFocused" class="playlist-hint">
+              <ListMusic :size="14" class="hint-icon" />
+              <div class="hint-body">
+                <span class="hint-label">识别到歌单</span>
+                <span class="hint-id">ID: {{ detectedPlaylistId }}</span>
+              </div>
+              <button
+                class="hint-go-btn"
+                @mousedown.prevent="router.push(`/playlist/${detectedPlaylistId}`)"
+              >
+                直达
+                <ArrowRight :size="13" />
+              </button>
+            </div>
+          </Transition>
 
           <!-- 搜索建议下拉 -->
           <Transition name="suggest">
@@ -128,7 +168,7 @@ const handleSongClick = (songId: number) => {
                     v-for="artist in searchStore.suggestResult.artists.slice(0, 2)"
                     :key="artist.id"
                     class="suggest-item"
-                    @mousedown.prevent="handleSuggestClick(artist.name)"
+                    @mousedown.prevent="handleArtistClick(artist.id)"
                   >
                     <User :size="13" class="suggest-icon" />
                     <span class="suggest-name">{{ artist.name }}</span>
@@ -153,8 +193,12 @@ const handleSongClick = (songId: number) => {
           </Transition>
         </div>
 
-        <Button @click="handleSearch" :disabled="searchStore.loading">
-          {{ searchStore.loading ? '搜索中...' : '搜索' }}
+        <Button
+          @click="handleSearch"
+          :disabled="searchStore.loading && !detectedPlaylistId"
+          :class="{ 'btn-goto': !!detectedPlaylistId }"
+        >
+          {{ detectedPlaylistId ? '前往歌单' : searchStore.loading ? '搜索中...' : '搜索' }}
         </Button>
       </div>
 
@@ -189,10 +233,49 @@ const handleSongClick = (songId: number) => {
       <!-- ── 搜索结果 ──────────────────────────────────────── -->
       <div class="search-results">
         <div
-          v-if="!searchStore.loading && searchStore.songs.length === 0 && searchStore.keyword"
+          v-if="
+            !searchStore.loading &&
+            searchStore.songs.length === 0 &&
+            searchStore.artists.length === 0 &&
+            searchStore.keyword &&
+            !detectedPlaylistId
+          "
           class="empty-state"
         >
           未找到相关结果
+        </div>
+
+        <!-- 歌手结果 -->
+        <div v-if="searchStore.artists.length > 0" class="artist-results">
+          <h3 class="result-section-title">
+            <User :size="14" />
+            歌手
+          </h3>
+          <div class="artist-cards">
+            <div
+              v-for="artist in searchStore.artists"
+              :key="artist.id"
+              class="artist-card"
+              @click="handleArtistClick(artist.id)"
+            >
+              <div class="artist-avatar-wrap">
+                <img
+                  v-if="artist.picUrl"
+                  :src="artist.picUrl + '?param=200y200'"
+                  :alt="artist.name"
+                  class="artist-avatar"
+                  loading="lazy"
+                />
+                <div v-else class="artist-avatar-fallback">
+                  <User :size="24" />
+                </div>
+              </div>
+              <span class="artist-card-name">{{ artist.name }}</span>
+              <span v-if="artist.alias?.length" class="artist-card-alias">
+                {{ artist.alias[0] }}
+              </span>
+            </div>
+          </div>
         </div>
 
         <div v-if="searchStore.songs.length > 0" class="song-list">
@@ -236,7 +319,75 @@ const handleSongClick = (songId: number) => {
         width: 100%;
       }
 
-      // 建议下拉面板
+      // ── 歌单直达提示 ───────────────────────────────────────
+      .playlist-hint {
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 0;
+        right: 0;
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+        background: var(--color-bg-elevated);
+        border: 1px solid var(--color-primary-dim);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-md);
+        transition:
+          background-color var(--transition-base),
+          border-color var(--transition-base);
+
+        .hint-icon {
+          color: var(--color-primary);
+          flex-shrink: 0;
+        }
+
+        .hint-body {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          min-width: 0;
+
+          .hint-label {
+            font-size: 13px;
+            color: var(--color-text-secondary);
+            flex-shrink: 0;
+          }
+
+          .hint-id {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--color-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+        }
+
+        .hint-go-btn {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          padding: 4px 10px;
+          border: none;
+          border-radius: var(--radius-sm);
+          background-color: var(--color-primary);
+          color: var(--color-text-on-primary);
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          flex-shrink: 0;
+          transition: background-color var(--transition-fast);
+
+          &:hover {
+            background-color: var(--color-primary-hover);
+          }
+        }
+      }
+
+      // ── 建议下拉面板 ───────────────────────────────────────
       .suggest-dropdown {
         position: absolute;
         top: calc(100% + 6px);
@@ -299,9 +450,14 @@ const handleSongClick = (songId: number) => {
         }
       }
     }
+
+    // 前往歌单按钮的主题色保持，无需额外覆盖
+    .btn-goto {
+      white-space: nowrap;
+    }
   }
 
-  // 建议下拉动画
+  // 建议下拉 / 歌单提示 共用进出动画
   .suggest-enter-active,
   .suggest-leave-active {
     transition:
@@ -432,6 +588,107 @@ const handleSongClick = (songId: number) => {
     color: var(--color-text-tertiary);
     padding: 40px 0;
     font-size: 14px;
+  }
+
+  /* ── 歌手结果区 ─────────────────────────────────────────── */
+  .artist-results {
+    padding: 8px 0 4px;
+
+    .result-section-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--color-text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 0 16px 10px;
+      margin: 0;
+    }
+
+    .artist-cards {
+      display: flex;
+      gap: 16px;
+      padding: 0 16px 16px;
+      overflow-x: auto;
+      scrollbar-width: none;
+
+      &::-webkit-scrollbar {
+        display: none;
+      }
+    }
+
+    .artist-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      flex-shrink: 0;
+      width: 80px;
+      padding: 8px 6px;
+      border-radius: var(--radius-md);
+      transition: background-color var(--transition-fast);
+
+      &:hover {
+        background-color: var(--color-surface-hover);
+      }
+
+      &:active {
+        background-color: var(--color-surface-active);
+      }
+    }
+
+    .artist-avatar-wrap {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      overflow: hidden;
+      flex-shrink: 0;
+      background-color: var(--color-bg-sunken);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .artist-avatar {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .artist-avatar-fallback {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--color-text-tertiary);
+    }
+
+    .artist-card-name {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--color-text);
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+      transition: color var(--transition-base);
+    }
+
+    .artist-card-alias {
+      font-size: 11px;
+      color: var(--color-text-tertiary);
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+      margin-top: -3px;
+      transition: color var(--transition-base);
+    }
   }
 
   .song-list {
