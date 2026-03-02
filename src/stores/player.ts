@@ -1,9 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { getSongCheck } from '@/api/song/songCheck'
-import { getSongDetail, type SongDetail } from '@/api/song/songDetail'
-import { getSongUrl } from '@/api/song/getSongUrl'
-import { getSongLyric } from '@/api/song/getSongLyric'
+import { getSongCheck } from '@/api/check/music'
+import { getSongDetail, type SongDetail } from '@/api/song/detail'
+import { getSongUrl } from '@/api/song/url/v1'
+import { getSongLyric } from '@/api/lyric'
 
 export interface ParsedLyric {
   time: number // 毫秒

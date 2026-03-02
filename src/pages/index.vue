@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import HomeLayout from '@/layouts/Home.vue'
-import { getHighQualityPlaylists, type HighQualityPlaylist } from '@/api/playlist/highquality'
+import { getHighQualityPlaylists, type HighQualityPlaylist } from '@/api/top/playlist/highquality'
 import { Disc, PlayCircle } from 'lucide-vue-next'
 
 const router = useRouter()

@@ -1,6 +1,6 @@
 // 搜索音乐
 
-import request from '../request'
+import request from './request'
 
 // 定义请求参数
 export interface SearchParams {

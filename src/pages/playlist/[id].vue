@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getPlaylistDetail, type PlaylistDetail } from '@/api/playlist/detail'
-import { getSongDetail, type SongDetail } from '@/api/song/songDetail'
+import { getSongDetail, type SongDetail } from '@/api/song/detail'
 import { usePlayerStore } from '@/stores/player'
 import { PlayCircle, Play, Loader2, ChevronLeft, MoreVertical } from 'lucide-vue-next'
 import HomeLayout from '@/layouts/Home.vue'

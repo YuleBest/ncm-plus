@@ -6,8 +6,8 @@ export interface PlaylistDetailParams {
 }
 
 // 此处用到已经定义好的 SongDetail
-import type { SongDetail } from '../song/songDetail'
-import type { PlaylistSubscriber } from './highquality'
+import type { SongDetail } from '../song/detail'
+import type { PlaylistSubscriber } from '../top/playlist/highquality'
 
 export interface PlaylistDetail {
   id: number

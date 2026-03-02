@@ -1,4 +1,6 @@
-import request from '../request'
+// 获取精品歌单
+
+import request from '../../request'
 
 export interface HighQualityPlaylistParams {
   cat?: string
@@ -83,7 +85,6 @@ export interface HighQualityPlaylistResponse {
   total: number
 }
 
-// 获取精品歌单
 export const getHighQualityPlaylists = (params?: HighQualityPlaylistParams) => {
   return request.get<HighQualityPlaylistResponse>('/top/playlist/highquality', { params })
 }

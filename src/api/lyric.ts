@@ -1,6 +1,6 @@
 // 获取歌词
 
-import request from '../request'
+import request from './request'
 
 export interface GetSongLyricParams {
   id: number // 歌曲 id

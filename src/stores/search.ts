@@ -1,8 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { searchMusic, type Song } from '@/api/search/searchMusic'
+import { searchMusic, type Song } from '@/api/search'
+import { getHotSearchDetail, type hotSearchDetail } from '@/api/search/hot'
+import { getSuggestDetail, type SuggestResult } from '@/api/search/suggest'
 
 export const useSearchStore = defineStore('search', () => {
+  // ── 搜索结果 ────────────────────────────────────────────────
   const keyword = ref('')
   const songs = ref<Song[]>([])
   const loading = ref(false)
@@ -40,12 +43,67 @@ export const useSearchStore = defineStore('search', () => {
     errorMsg.value = ''
   }
 
+  // ── 热搜榜 ──────────────────────────────────────────────────
+  const hotList = ref<hotSearchDetail[]>([])
+  const hotLoading = ref(false)
+
+  const fetchHotSearch = async () => {
+    if (hotList.value.length) return // 已加载则跳过
+    hotLoading.value = true
+    try {
+      const res = await getHotSearchDetail()
+      if (res.data?.code === 200) {
+        hotList.value = res.data.result?.hots || []
+      }
+    } catch {
+      // 静默失败，不影响主功能
+    } finally {
+      hotLoading.value = false
+    }
+  }
+
+  // ── 搜索建议 ────────────────────────────────────────────────
+  const suggestResult = ref<SuggestResult | null>(null)
+  const suggestLoading = ref(false)
+
+  const fetchSuggestions = async (kw: string) => {
+    if (!kw.trim()) {
+      suggestResult.value = null
+      return
+    }
+    suggestLoading.value = true
+    try {
+      const res = await getSuggestDetail({ keywords: kw })
+      if (res.data?.code === 200) {
+        suggestResult.value = res.data.result
+      }
+    } catch {
+      // 静默失败，不影响主功能
+    } finally {
+      suggestLoading.value = false
+    }
+  }
+
+  const clearSuggestions = () => {
+    suggestResult.value = null
+  }
+
   return {
+    // 搜索结果
     keyword,
     songs,
     loading,
     errorMsg,
     performSearch,
     clearSearch,
+    // 热搜榜
+    hotList,
+    hotLoading,
+    fetchHotSearch,
+    // 搜索建议
+    suggestResult,
+    suggestLoading,
+    fetchSuggestions,
+    clearSuggestions,
   }
 })
