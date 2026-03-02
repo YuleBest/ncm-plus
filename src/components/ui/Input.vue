@@ -10,22 +10,30 @@ const modelValue = defineModel<string>()
 .base-input {
   width: 100%;
   padding: 12px 16px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
   font-size: 16px;
   outline: none;
+  background-color: var(--color-bg-elevated);
+  color: var(--color-text);
   transition:
-    border-color 0.2s,
-    box-shadow 0.2s;
-  background-color: #fff;
+    border-color var(--transition-fast),
+    background-color var(--transition-base),
+    color var(--transition-base),
+    box-shadow var(--transition-fast);
+
+  &::placeholder {
+    color: var(--color-text-placeholder);
+  }
 
   &:focus {
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 2px rgba(255, 90, 95, 0.1);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-dim);
   }
 
   &:disabled {
-    background-color: var(--background-color);
+    background-color: var(--color-bg-sunken);
+    color: var(--color-text-tertiary);
     cursor: not-allowed;
   }
 }

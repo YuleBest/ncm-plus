@@ -1,9 +1,122 @@
-/* 全局变量 */
+/* ════════════════════════════════════════════════════════════
+   NCM Plus · Design Tokens
+   调色板：CSS 自定义属性 + 暗色 / 亮色双模式
+   ════════════════════════════════════════════════════════════ */
 
+/* ── 暗色变量 Mixin ──────────────────────────────────────────── */
+@mixin dark-theme-vars {
+  /* 背景层次 */
+  --color-bg: #0e0e12;
+  --color-bg-elevated: #18181e;
+  --color-bg-sunken: #08080a;
+  --color-bg-card: rgba(24, 24, 32, 0.88);
+
+  /* 表面交互 */
+  --color-surface-hover: rgba(255, 255, 255, 0.06);
+  --color-surface-active: rgba(255, 255, 255, 0.1);
+
+  /* 毛玻璃 */
+  --color-glass: rgba(18, 18, 26, 0.86);
+  --color-glass-border: rgba(255, 255, 255, 0.07);
+  --color-glass-inset: rgba(255, 255, 255, 0.05);
+  --color-glass-mask: rgba(10, 10, 15, 0.82);
+
+  /* 文字 */
+  --color-text: #eeeef2;
+  --color-text-secondary: #9898a8;
+  --color-text-tertiary: #585868;
+  --color-text-placeholder: #38384a;
+  --color-text-on-primary: #ffffff;
+
+  /* 分隔线 */
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-subtle: rgba(255, 255, 255, 0.04);
+
+  /* 阴影 */
+  --shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.55), 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.7), 0 2px 10px rgba(0, 0, 0, 0.6);
+  --shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+
+  /* 滚动条 */
+  color-scheme: dark;
+}
+
+/* ── 亮色模式（默认）────────────────────────────────────────── */
 :root {
-  --background-color: #f7f9fc;
-  --text-color: #333;
-  --primary-color: #ff5a5f;
-  --secondary-color: #ff8c42;
-  --accent-color: #ffb366;
+  /* 品牌色 */
+  --color-primary: #ff5a5f;
+  --color-primary-hover: #e83e43;
+  --color-primary-dim: rgba(255, 90, 95, 0.12);
+  --color-secondary: #ff8c42;
+  --color-accent: #ffb366;
+
+  /* 背景层次 */
+  --color-bg: #f4f6fb;
+  --color-bg-elevated: #ffffff;
+  --color-bg-sunken: #e8ecf2;
+  --color-bg-card: rgba(255, 255, 255, 0.82);
+
+  /* 表面交互 */
+  --color-surface-hover: rgba(0, 0, 0, 0.045);
+  --color-surface-active: rgba(0, 0, 0, 0.08);
+
+  /* 毛玻璃 */
+  --color-glass: rgba(255, 255, 255, 0.78);
+  --color-glass-border: rgba(255, 255, 255, 0.55);
+  --color-glass-inset: rgba(255, 255, 255, 0.8);
+  --color-glass-mask: rgba(244, 246, 251, 0.8);
+
+  /* 文字 */
+  --color-text: #1a1a1e;
+  --color-text-secondary: #5a5a6a;
+  --color-text-tertiary: #9898a8;
+  --color-text-placeholder: #c0c0cc;
+  --color-text-on-primary: #ffffff;
+
+  /* 分隔线 */
+  --color-border: rgba(0, 0, 0, 0.07);
+  --color-border-subtle: rgba(0, 0, 0, 0.04);
+
+  /* 阴影 */
+  --shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.07), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.09), 0 2px 6px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.13), 0 2px 10px rgba(0, 0, 0, 0.07);
+  --shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+
+  /* 圆角 */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* 过渡 */
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.25s ease;
+  --transition-slow: 0.4s ease;
+
+  /* 滚动条 */
+  color-scheme: light;
+
+  /* ── 向后兼容旧变量名 ────── */
+  --background-color: var(--color-bg);
+  --text-color: var(--color-text);
+  --primary-color: var(--color-primary);
+  --secondary-color: var(--color-secondary);
+  --accent-color: var(--color-accent);
+}
+
+/* ── 暗色：显式切换（JS 写入 html.dark）────────────────────── */
+html.dark {
+  @include dark-theme-vars;
+}
+
+/* ── 暗色：跟随系统（无显式选择时自动生效）─────────────────── */
+@media (prefers-color-scheme: dark) {
+  html:not(.light) {
+    @include dark-theme-vars;
+  }
 }

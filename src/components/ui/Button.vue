@@ -12,24 +12,30 @@
   align-items: center;
   justify-content: center;
   padding: 0 24px;
-  background-color: var(--primary-color);
-  color: #fff;
+  background-color: var(--color-primary);
+  color: var(--color-text-on-primary);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-size: 15px;
   font-weight: 500;
   cursor: pointer;
+  height: 44px;
   transition:
-    background-color 0.2s,
-    opacity 0.2s;
-  height: 44px; /* Default uniform height */
+    background-color var(--transition-fast),
+    opacity var(--transition-fast),
+    transform 0.15s ease;
 
   &:hover:not(:disabled) {
-    background-color: var(--primary-color);
+    background-color: var(--color-primary-hover);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+    background-color: var(--color-primary-hover);
   }
 
   &:disabled {
-    opacity: 0.6;
+    opacity: 0.5;
     cursor: not-allowed;
   }
 }

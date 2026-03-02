@@ -1,39 +1,45 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+defineOptions({ name: 'PlaylistDetailPage' })
+import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getPlaylistDetail, type PlaylistDetail } from '@/api/playlist/detail'
 import { getSongDetail, type SongDetail } from '@/api/song/detail'
 import { usePlayerStore } from '@/stores/player'
-import { PlayCircle, Play, Loader2, ChevronLeft, MoreVertical } from 'lucide-vue-next'
+import { PlayCircle, Play, ChevronLeft } from 'lucide-vue-next'
 import HomeLayout from '@/layouts/Home.vue'
+import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
+import SongItem from '@/components/song/SongItem.vue'
+import { formatPlayCount } from '@/utils/format'
 
 const route = useRoute()
 const router = useRouter()
 const playerStore = usePlayerStore()
 
-const playlistId = (route.params as Record<string, string>).id as string | undefined
+// 响应式参数：路由切换时自动更新
+const playlistId = computed(() => (route.params as Record<string, string>).id ?? '')
 const isLoading = ref(true)
 const playlistInfo = ref<PlaylistDetail | null>(null)
 const completeTracks = ref<SongDetail[]>([])
 
 const fetchPlaylistData = async () => {
-  if (!playlistId) return
+  const id = playlistId.value
+  if (!id) return
+
+  // 每次加载前先清空旧数据，避免短暂显示上一个歌单的内容
+  playlistInfo.value = null
+  completeTracks.value = []
 
   try {
     isLoading.value = true
-    // 1. 获取歌单详情，包含了基本的 info 和完整的 trackIds
-    const detailRes = await getPlaylistDetail({ id: playlistId })
+    const detailRes = await getPlaylistDetail({ id })
     if (!detailRes.data?.playlist) throw new Error('无法获取歌单详情')
 
     playlistInfo.value = detailRes.data.playlist
     const trackIdsObj = playlistInfo.value.trackIds || []
 
-    // 2. 提取所有的 trackId，用逗号拼接
     const trackIds = trackIdsObj.map((t) => t.id)
     if (trackIds.length > 0) {
-      // 鉴于网易云接口对单次获取的 ids 数量有限制，我们分批获取（这里为了简化先假设总量可一次获取，通常 500 首以内无问题，超过需切片）
-      // 生产环境可以根据 trackIds.length > 500 做 slice 分批请求并 concat
-      const chunks = []
+      const chunks: number[][] = []
       const chunkSize = 500
       for (let i = 0; i < trackIds.length; i += chunkSize) {
         chunks.push(trackIds.slice(i, i + chunkSize))
@@ -72,19 +78,15 @@ const goBack = () => {
   router.back()
 }
 
-// 格式化播放量
-const formatPlayCount = (count: number) => {
-  if (!count) return '0'
-  if (count > 100000000) return (count / 100000000).toFixed(1) + '亿'
-  if (count > 10000) return (count / 10000).toFixed(1) + '万'
-  return count.toString()
-}
-
-onMounted(() => {
-  if (playlistId) {
-    fetchPlaylistData()
-  }
-})
+// 监听路由参数变化，immediate: true 保证首次进入也触发
+// 即使将来被放回 keep-alive，切换歌单时也能正确刷新
+watch(
+  playlistId,
+  (id) => {
+    if (id) fetchPlaylistData()
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -94,19 +96,19 @@ onMounted(() => {
       <div
         v-if="playlistInfo"
         class="bg-blur"
-        :style="{ backgroundImage: `url(${playlistInfo.coverImgUrl}?param=50y50)` }"
+        :style="{ backgroundImage: `url(${playlistInfo.coverImgUrl}?param=100y100)` }"
       ></div>
+      <!-- 遮罩层：颜色跟随主题 -->
+      <div v-if="playlistInfo" class="bg-mask"></div>
 
-      <div v-if="isLoading" class="loading-state">
-        <Loader2 class="icon-spin" :size="40" color="#666" />
-        <span>加载歌单中...</span>
-      </div>
+      <!-- 加载状态 -->
+      <LoadingSpinner v-if="isLoading" text="加载歌单中..." :size="36" class="page-loading" />
 
       <div v-else-if="playlistInfo" class="playlist-content">
-        <!-- 导航栏 (透明) -->
+        <!-- 导航栏 -->
         <div class="nav-header">
-          <button class="icon-button back-btn" @click="goBack" title="返回">
-            <ChevronLeft color="#fff" />
+          <button class="nav-back-btn icon-button" @click="goBack" title="返回">
+            <ChevronLeft :size="22" />
           </button>
           <span class="nav-title">歌单</span>
         </div>
@@ -121,7 +123,7 @@ onMounted(() => {
                 class="cover-img"
               />
               <div class="play-count">
-                <PlayCircle :size="12" class="mr-1" />
+                <PlayCircle :size="11" class="play-count-icon" />
                 {{ formatPlayCount(playlistInfo.playCount) }}
               </div>
             </div>
@@ -136,7 +138,7 @@ onMounted(() => {
                 class="avatar"
               />
               <span class="nickname">{{ playlistInfo.creator?.nickname }}</span>
-              <span v-if="playlistInfo.tags?.length" class="tag-divider">|</span>
+              <span v-if="playlistInfo.tags?.length" class="tag-divider">·</span>
               <span v-if="playlistInfo.tags?.length" class="tags">{{ playlistInfo.tags[0] }}</span>
             </div>
             <div class="desc-box">
@@ -150,49 +152,30 @@ onMounted(() => {
           <!-- 播放全部吸顶头 -->
           <div class="play-all-header" @click="playAll">
             <div class="play-icon-box">
-              <Play :size="16" color="#fff" fill="#ff3a3a" />
+              <Play :size="14" color="#fff" fill="#fff" />
             </div>
             <div class="play-text">
               <span class="main">播放全部</span>
-              <span class="count">{{ completeTracks.length }}首</span>
+              <span class="count">{{ completeTracks.length }} 首</span>
             </div>
           </div>
 
           <!-- 列表区 -->
           <div v-if="completeTracks.length === 0" class="empty-tracks">暂无歌曲</div>
           <div v-else class="tracks-list">
-            <div
+            <SongItem
               v-for="(song, index) in completeTracks"
               :key="song.id"
-              class="track-item"
-              :class="{ playing: playerStore.currentSong?.id === song.id }"
-              @dblclick="playSong(index)"
+              :name="song.name"
+              :artist-text="song.ar?.map((a) => a.name).join(' / ') ?? ''"
+              :album-name="song.al?.name"
+              :alia="song.alia"
+              :cover-url="song.al?.picUrl + '?param=100y100'"
+              :is-vip="song.fee === 1"
+              :playing="playerStore.currentSong?.id === song.id"
+              :show-more="true"
               @click="playSong(index)"
-            >
-              <!-- 封面图 -->
-              <div class="song-cover">
-                <img :src="song.al?.picUrl + '?param=100y100'" alt="album" loading="lazy" />
-              </div>
-
-              <!-- 歌曲信息 -->
-              <div class="song-meta">
-                <div class="song-title-row">
-                  <span class="name">{{ song.name }}</span>
-                  <span class="alia" v-if="song.alia?.length">({{ song.alia[0] }})</span>
-                </div>
-                <div class="song-artist-row">
-                  <span v-if="song.fee === 1" class="vip-badge">VIP</span>
-                  <span class="artist-album">
-                    {{ song.ar?.map((a) => a.name).join('/') }} - {{ song.al?.name }}
-                  </span>
-                </div>
-              </div>
-
-              <!-- 更多操作 -->
-              <button class="more-btn">
-                <MoreVertical :size="20" color="#999" />
-              </button>
-            </div>
+            />
           </div>
         </div>
       </div>
@@ -201,120 +184,135 @@ onMounted(() => {
 </template>
 
 <style lang="scss" scoped>
-/* 全局页面样式 */
+/* ── 页面容器 ─────────────────────────────────────────────── */
 .playlist-page {
   position: relative;
-  min-height: 100vh;
-  padding-bottom: 80px;
+  min-height: 100%;
+  padding-bottom: 100px;
   overflow-x: hidden;
-  margin: 0 auto;
 
   &.is-loading {
-    background-color: #f7f9fc;
-    color: #333;
+    background-color: var(--color-bg);
   }
 }
 
-/* 内容层级提升 */
-.playlist-content,
-.loading-state {
+/* ── 模糊背景 ─────────────────────────────────────────────── */
+.bg-blur {
+  position: fixed;
+  top: -10%;
+  left: -10%;
+  width: 120%;
+  height: 120%;
+  background-size: cover;
+  background-position: center;
+  filter: blur(60px);
+  opacity: 0.3;
+  z-index: 0;
+  transform: translateZ(0);
+  will-change: filter;
+  pointer-events: none;
+}
+
+.bg-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--color-glass-mask);
+  z-index: 1;
+  pointer-events: none;
+  transition: background-color var(--transition-slow);
+}
+
+/* ── 加载状态 ─────────────────────────────────────────────── */
+.page-loading {
+  position: relative;
+  z-index: 10;
+  padding: 100px 0;
+}
+
+/* ── 内容层级 ─────────────────────────────────────────────── */
+.playlist-content {
   position: relative;
   z-index: 10;
 }
 
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 100px 0;
-  gap: 16px;
-}
-
-/* 导航栏 */
+/* ── 导航栏 ───────────────────────────────────────────────── */
 .nav-header {
   display: flex;
   align-items: center;
   height: 56px;
-  padding: 0 16px;
+  padding: 0 8px 0 4px;
   position: sticky;
   top: 0;
   z-index: 50;
 
-  .back-btn {
-    background: transparent;
-    border: none;
-    padding: 8px;
-    margin-right: 8px;
-    display: flex;
-    align-items: center;
-    cursor: pointer;
-    border-radius: 50%;
-    &:hover {
-      background: rgba(255, 255, 255, 0.1);
-    }
+  .nav-back-btn {
+    margin-right: 4px;
+    border-radius: var(--radius-full);
   }
 
   .nav-title {
     font-size: 17px;
-    font-weight: 500;
+    font-weight: 600;
+    color: var(--color-text);
+    transition: color var(--transition-base);
   }
 }
 
-/* 歌单头部信息组合 */
+/* ── 歌单头部信息 ─────────────────────────────────────────── */
 .playlist-info-header {
   display: flex;
-  padding: 16px 20px 24px 20px;
+  padding: 8px 20px 24px;
   gap: 16px;
   align-items: flex-start;
 
   @media (min-width: 768px) {
-    padding: 32px 40px;
-    gap: 32px;
+    padding: 24px 40px 32px;
+    gap: 28px;
   }
 }
 
 .cover-section {
   flex-shrink: 0;
+
   .cover-wrapper {
     width: 110px;
     height: 110px;
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     overflow: hidden;
     position: relative;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--shadow-lg);
 
     @media (min-width: 768px) {
-      width: 200px;
-      height: 200px;
-      border-radius: 16px;
+      width: 190px;
+      height: 190px;
+      border-radius: var(--radius-lg);
     }
 
     .cover-img {
       width: 100%;
       height: 100%;
       object-fit: cover;
+      display: block;
     }
 
     .play-count {
       position: absolute;
-      top: 4px;
+      top: 5px;
       right: 6px;
       display: flex;
       align-items: center;
+      gap: 3px;
       font-size: 11px;
       font-weight: 500;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-      background: rgba(0, 0, 0, 0.2);
-      padding: 2px 6px;
-      border-radius: 10px;
-
-      @media (min-width: 768px) {
-        top: 8px;
-        right: 8px;
-        font-size: 13px;
-        padding: 4px 8px;
-      }
+      color: #fff;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+      background: rgba(0, 0, 0, 0.28);
+      padding: 2px 7px;
+      border-radius: var(--radius-full);
+      backdrop-filter: blur(4px);
     }
   }
 }
@@ -325,53 +323,70 @@ onMounted(() => {
   flex-direction: column;
   min-width: 0;
   gap: 8px;
+  padding-top: 2px;
 
   .title {
     font-size: 17px;
-    font-weight: 600;
+    font-weight: 700;
     line-height: 1.4;
     margin: 0;
+    color: var(--color-text);
     display: -webkit-box;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    transition: color var(--transition-base);
+
+    @media (min-width: 768px) {
+      font-size: 22px;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+    }
   }
 
   .creator-box {
     display: flex;
     align-items: center;
     gap: 6px;
-    margin-top: 2px;
 
     .avatar {
       width: 20px;
       height: 20px;
       border-radius: 50%;
+      object-fit: cover;
     }
+
     .nickname {
       font-size: 12px;
+      color: var(--color-text-secondary);
+      transition: color var(--transition-base);
     }
+
     .tag-divider {
-      margin: 0 2px;
-      font-size: 10px;
+      font-size: 12px;
+      color: var(--color-text-placeholder);
     }
+
     .tags {
       font-size: 12px;
+      color: var(--color-primary);
+      font-weight: 500;
     }
   }
 
   .desc-box {
-    margin-top: 4px;
     .desc-text {
-      font-size: 11px;
+      font-size: 12px;
       margin: 0;
-      line-height: 1.5;
+      line-height: 1.6;
+      color: var(--color-text-tertiary);
       display: -webkit-box;
       -webkit-line-clamp: 2;
       line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
+      transition: color var(--transition-base);
 
       @media (min-width: 768px) {
         font-size: 14px;
@@ -382,234 +397,99 @@ onMounted(() => {
   }
 }
 
-/* 操作栏 */
-.action-bar {
-  display: flex;
-  justify-content: space-around;
-  padding: 0 24px 24px 24px;
-  gap: 16px;
-
-  @media (min-width: 768px) {
-    justify-content: flex-start;
-    padding: 0 40px 32px 40px;
-    max-width: 500px;
-    gap: 24px;
-  }
-
-  .action-btn {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    background: rgba(255, 255, 255, 0.1);
-    border: none;
-    border-radius: 20px;
-    height: 38px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 0.2s;
-
-    &:hover {
-      background: rgba(255, 255, 255, 0.15);
-    }
-  }
-}
-
-/* 列表主容器 */
+/* ── 歌曲列表卡片容器 ─────────────────────────────────────── */
 .track-list-sheet {
-  border-radius: 20px 20px 0 0;
-  min-height: 60vh;
+  background-color: var(--color-bg);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  min-height: 50vh;
   position: relative;
-  padding-bottom: 24px;
+  padding-bottom: 32px;
+  box-shadow: var(--shadow-md);
+  transition: background-color var(--transition-slow);
 }
 
-/* 播放全部头 */
+/* ── 播放全部固定头 ───────────────────────────────────────── */
 .play-all-header {
   display: flex;
   align-items: center;
-  padding: 16px;
+  padding: 16px 20px;
   position: sticky;
-  top: 56px; /* 吸附到导航栏下 */
-  border-radius: 20px 20px 0 0;
+  top: 56px;
+  background-color: var(--color-bg);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   z-index: 40;
   cursor: pointer;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--color-border-subtle);
+  transition:
+    background-color var(--transition-slow),
+    border-color var(--transition-base);
+
+  &:hover {
+    background-color: var(--color-bg-elevated);
+  }
 
   @media (min-width: 768px) {
-    padding: 20px 40px;
+    padding: 18px 40px;
   }
 
   .play-icon-box {
-    width: 28px;
-    height: 28px;
-    background-color: #ff3a3a;
+    width: 30px;
+    height: 30px;
+    background-color: var(--color-primary);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     margin-right: 12px;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px var(--color-primary-dim);
+    transition: background-color var(--transition-fast);
   }
 
   .play-text {
     flex: 1;
     display: flex;
     align-items: baseline;
-    gap: 6px;
+    gap: 8px;
 
     .main {
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 600;
+      color: var(--color-text);
+      transition: color var(--transition-base);
     }
+
     .count {
       font-size: 12px;
-    }
-  }
-
-  .header-actions {
-    display: flex;
-    gap: 16px;
-
-    .header-icon-btn {
-      background: none;
-      border: none;
-      display: flex;
-      align-items: center;
-      padding: 4px;
-      cursor: pointer;
-      opacity: 0.8;
-      &:hover {
-        opacity: 1;
-      }
+      color: var(--color-text-tertiary);
+      transition: color var(--transition-base);
     }
   }
 }
 
-/* 歌曲列表项 */
+/* ── 空列表 ───────────────────────────────────────────────── */
+.empty-tracks {
+  text-align: center;
+  padding: 60px 0;
+  font-size: 14px;
+  color: var(--color-text-tertiary);
+}
+
+/* ── 歌曲列表 ─────────────────────────────────────────────── */
 .tracks-list {
   display: flex;
   flex-direction: column;
-}
-
-.track-item {
-  display: flex;
-  align-items: center;
-  padding: 10px 16px;
-  gap: 12px;
-  cursor: pointer;
-  transition: background-color 0.2s;
 
   @media (min-width: 768px) {
-    padding: 12px 40px;
-    gap: 16px;
-  }
-
-  &:hover {
-    background-color: rgba(255, 255, 255, 0.695);
-  }
-
-  &.playing {
-    .song-meta .name {
-      color: #ff3a3a;
+    /* 桌面端歌曲行左右增加缩进，与播放全部头对齐 */
+    :deep(.song-item) {
+      padding-left: 40px;
+      padding-right: 40px;
     }
-  }
-
-  .song-cover {
-    width: 44px;
-    height: 44px;
-    border-radius: 6px;
-    flex-shrink: 0;
-    overflow: hidden;
-    background: rgba(255, 255, 255, 0.1);
-
-    @media (min-width: 768px) {
-      width: 54px;
-      height: 54px;
-      border-radius: 8px;
-    }
-
-    img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-  }
-
-  .song-meta {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    gap: 4px;
-    justify-content: center;
-
-    .song-title-row {
-      display: flex;
-      align-items: center;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-
-      .name {
-        font-size: 15px;
-        font-weight: 400;
-
-        @media (min-width: 768px) {
-          font-size: 16px;
-        }
-      }
-      .alia {
-        font-size: 15px;
-        margin-left: 4px;
-
-        @media (min-width: 768px) {
-          font-size: 16px;
-        }
-      }
-    }
-
-    .song-artist-row {
-      display: flex;
-      align-items: center;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-
-      .vip-badge {
-        font-size: 9px;
-        color: #ff3a3a;
-        border: 1px solid #ff3a3a;
-        padding: 0 3px;
-        border-radius: 3px;
-        margin-right: 4px;
-        line-height: normal;
-        flex-shrink: 0;
-      }
-
-      .artist-album {
-        font-size: 12px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-
-        @media (min-width: 768px) {
-          font-size: 14px;
-        }
-      }
-    }
-  }
-
-  .more-btn {
-    background: none;
-    border: none;
-    padding: 8px;
-    display: flex;
-    align-items: center;
-    cursor: pointer;
-    flex-shrink: 0;
   }
 }
 
+/* ── 加载动画（icon-spin 供 Loader2 使用） ─────────────────── */
 .icon-spin {
   animation: spin 1s linear infinite;
 }

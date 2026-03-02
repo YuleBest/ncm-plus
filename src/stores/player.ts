@@ -44,6 +44,15 @@ export const usePlayerStore = defineStore('player', () => {
   const isLoading = ref(false)
   const errorMessage = ref('')
 
+  // 播放页面覆盖层的显示状态
+  const isPlayerOpen = ref(false)
+  const openPlayer = () => {
+    isPlayerOpen.value = true
+  }
+  const closePlayer = () => {
+    isPlayerOpen.value = false
+  }
+
   // ----- 核心事件绑定 -----
   audio.addEventListener('timeupdate', () => {
     currentTime.value = audio.currentTime
@@ -432,5 +441,8 @@ export const usePlayerStore = defineStore('player', () => {
     setVolume,
     setTargetQuality,
     unlock,
+    isPlayerOpen,
+    openPlayer,
+    closePlayer,
   }
 })

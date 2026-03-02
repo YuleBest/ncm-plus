@@ -31,7 +31,7 @@ onUnmounted(() => {
         class="global-bg-blur"
         :style="{ backgroundImage: `url(${playerStore.currentSong.al.picUrl}?param=100y100)` }"
       ></div>
-      <!-- 浅色遮罩，保证文字可读性 -->
+      <!-- 遮罩，保证文字可读性，颜色跟随主题 -->
       <div class="global-bg-mask"></div>
     </template>
 
@@ -71,9 +71,9 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background-color: #f7f9fc;
-  position: relative; /* 确保内部绝对定位元素以此为参考 */
-  transition: background-color 0.5s ease;
+  background-color: var(--color-bg);
+  position: relative;
+  transition: background-color var(--transition-slow);
 }
 
 .app-layout-wrapper.has-global-bg {
@@ -90,20 +90,22 @@ onUnmounted(() => {
   background-size: cover;
   background-position: center;
   filter: blur(80px);
-  opacity: 0.5; /* 全局背景可以比播放页稍微淡一点 */
+  opacity: 0.45;
   z-index: -2;
   transform: translate(-50%, -50%) scale(2.5) translateZ(0);
   will-change: transform;
 }
-/* 全局半透明遮罩叠加层：保证前台深色文字可读性 */
+
+/* 遮罩叠加层：使用主题变量，亮色偏浅，暗色偏深 */
 .global-bg-mask {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(247, 249, 252, 0.75); /* 使用原底色带有 0.75 的透明度 */
+  background-color: var(--color-glass-mask);
   z-index: -1;
+  transition: background-color var(--transition-slow);
 }
 
 /* 主内容容器 */
@@ -119,7 +121,6 @@ onUnmounted(() => {
 .layout-content-area {
   flex: 1;
   overflow-y: auto;
-  padding: 0px;
   scroll-behavior: smooth;
 }
 

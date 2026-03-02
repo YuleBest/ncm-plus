@@ -1,16 +1,16 @@
 <script setup lang="ts">
+defineOptions({ name: 'SearchPage' })
 import { onMounted, onUnmounted, ref, computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import HomeLayout from '@/layouts/Home.vue'
 import Input from '@/components/ui/Input.vue'
 import Button from '@/components/ui/Button.vue'
+import SongItem from '@/components/song/SongItem.vue'
 import { Flame, Music2, User, Disc } from 'lucide-vue-next'
 import { usePlayerStore } from '@/stores/player'
 import { useSearchStore } from '@/stores/search'
 
 const playerStore = usePlayerStore()
 const searchStore = useSearchStore()
-const router = useRouter()
 
 onMounted(() => {
   searchStore.fetchHotSearch()
@@ -53,24 +53,15 @@ onUnmounted(() => {
   if (debounceTimer) clearTimeout(debounceTimer)
 })
 
-const onFocus = () => {
-  inputFocused.value = true
-}
-const onBlur = () => {
-  // 延迟 150ms，给 mousedown.prevent 的点击事件留出触发时间
-  setTimeout(() => {
-    inputFocused.value = false
-  }, 150)
-}
-const closeSuggest = () => {
-  inputFocused.value = false
-}
+const onFocus = () => (inputFocused.value = true)
+const onBlur = () => setTimeout(() => (inputFocused.value = false), 150)
+const closeSuggest = () => (inputFocused.value = false)
+
 const handleSuggestClick = (text: string) => {
   playerStore.unlock()
   inputFocused.value = false
   searchStore.performSearch(text)
 }
-// ────────────────────────────────────────────────────────────
 
 const handleSearch = async () => {
   playerStore.unlock()
@@ -83,25 +74,17 @@ const handleHotClick = (keyword: string) => {
   searchStore.performSearch(keyword)
 }
 
-// 格式化时长 (毫秒 -> 分:秒)
-const formatDuration = (ms: number) => {
-  if (!ms) return '00:00'
-  const totalSeconds = Math.floor(ms / 1000)
-  const m = Math.floor(totalSeconds / 60)
-  const s = totalSeconds % 60
-  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
-}
-
 const handleSongClick = (songId: number) => {
   playerStore.unlock()
   playerStore.playSong(songId)
-  router.push({ path: '/play', query: { id: songId } })
+  playerStore.openPlayer()
 }
 </script>
 
 <template>
   <HomeLayout>
     <div class="search-page">
+      <!-- ── 搜索栏 ──────────────────────────────────────────── -->
       <div class="search-header">
         <div class="search-input-wrapper">
           <Input
@@ -114,6 +97,7 @@ const handleSongClick = (songId: number) => {
             @blur="onBlur"
             @keydown.escape="closeSuggest"
           />
+
           <!-- 搜索建议下拉 -->
           <Transition name="suggest">
             <div v-if="showSuggest" class="suggest-dropdown">
@@ -174,11 +158,12 @@ const handleSongClick = (songId: number) => {
         </Button>
       </div>
 
+      <!-- ── 错误提示 ──────────────────────────────────────── -->
       <div v-if="searchStore.errorMsg" class="error-msg">
         {{ searchStore.errorMsg }}
       </div>
 
-      <!-- 热搜榜：无关键词时展示 -->
+      <!-- ── 热搜榜：无关键词时展示 ──────────────────────── -->
       <div v-if="!searchStore.keyword" class="hot-search">
         <h3 class="hot-title">
           <Flame :size="16" />
@@ -201,7 +186,7 @@ const handleSongClick = (songId: number) => {
         </ol>
       </div>
 
-      <!-- 搜索结果 -->
+      <!-- ── 搜索结果 ──────────────────────────────────────── -->
       <div class="search-results">
         <div
           v-if="!searchStore.loading && searchStore.songs.length === 0 && searchStore.keyword"
@@ -210,26 +195,20 @@ const handleSongClick = (songId: number) => {
           未找到相关结果
         </div>
 
-        <ul class="song-list" v-if="searchStore.songs.length > 0">
-          <li
+        <div v-if="searchStore.songs.length > 0" class="song-list">
+          <SongItem
             v-for="(song, index) in searchStore.songs"
             :key="song.id"
-            class="song-item"
+            :name="song.name"
+            :artist-text="song.artists?.map((a) => a.name).join(' / ') ?? ''"
+            :album-name="song.album?.name"
+            :index="index + 1"
+            :duration-ms="song.duration"
+            :is-vip="song.fee === 1"
+            :playing="playerStore.currentSong?.id === song.id"
             @click="handleSongClick(song.id)"
-          >
-            <div class="song-index">{{ index + 1 }}</div>
-            <div class="song-info">
-              <div class="song-name-wrapper">
-                <div class="song-name">{{ song.name }}</div>
-                <span v-if="song.fee === 1" class="vip-tag">VIP</span>
-              </div>
-              <div class="song-artist">
-                {{ song.artists?.map((a) => a.name).join(' / ') }} - {{ song.album?.name }}
-              </div>
-            </div>
-            <div class="song-duration">{{ formatDuration(song.duration) }}</div>
-          </li>
-        </ul>
+          />
+        </div>
       </div>
     </div>
   </HomeLayout>
@@ -260,22 +239,25 @@ const handleSongClick = (songId: number) => {
       // 建议下拉面板
       .suggest-dropdown {
         position: absolute;
-        top: calc(100% + 4px);
+        top: calc(100% + 6px);
         left: 0;
         right: 0;
         z-index: 100;
-        background: #fff;
-        border-radius: 12px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-        border: 1px solid rgba(0, 0, 0, 0.06);
+        background: var(--color-bg-elevated);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-lg);
+        border: 1px solid var(--color-border);
         overflow: hidden;
         max-height: 320px;
         overflow-y: auto;
+        transition:
+          background-color var(--transition-base),
+          border-color var(--transition-base);
 
         .suggest-loading {
           padding: 12px 16px;
           font-size: 13px;
-          color: #999;
+          color: var(--color-text-tertiary);
         }
 
         .suggest-item {
@@ -284,33 +266,35 @@ const handleSongClick = (songId: number) => {
           gap: 8px;
           padding: 10px 16px;
           cursor: pointer;
-          transition: background-color 0.15s;
+          transition: background-color var(--transition-fast);
 
           &:hover {
-            background-color: rgba(0, 0, 0, 0.04);
+            background-color: var(--color-surface-hover);
           }
 
           .suggest-icon {
-            color: #bbb;
+            color: var(--color-text-placeholder);
             flex-shrink: 0;
           }
 
           .suggest-name {
             flex: 1;
             font-size: 14px;
-            color: #333;
+            color: var(--color-text);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            transition: color var(--transition-base);
           }
 
           .suggest-sub {
             font-size: 12px;
-            color: #999;
+            color: var(--color-text-tertiary);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
             max-width: 120px;
+            transition: color var(--transition-base);
           }
         }
       }
@@ -321,8 +305,8 @@ const handleSongClick = (songId: number) => {
   .suggest-enter-active,
   .suggest-leave-active {
     transition:
-      opacity 0.15s,
-      transform 0.15s;
+      opacity 0.15s ease,
+      transform 0.15s ease;
   }
   .suggest-enter-from,
   .suggest-leave-to {
@@ -332,7 +316,7 @@ const handleSongClick = (songId: number) => {
 
   // ── 错误提示 ─────────────────────────────────────────────────
   .error-msg {
-    color: #ff5a5f;
+    color: var(--color-primary);
     margin-bottom: 16px;
     font-size: 14px;
   }
@@ -347,12 +331,13 @@ const handleSongClick = (songId: number) => {
       gap: 6px;
       font-size: 16px;
       font-weight: 600;
-      color: #333;
+      color: var(--color-text);
       margin: 0 0 12px;
+      transition: color var(--transition-base);
     }
 
     .hot-loading {
-      color: #999;
+      color: var(--color-text-tertiary);
       font-size: 14px;
       padding: 12px 0;
     }
@@ -364,43 +349,48 @@ const handleSongClick = (songId: number) => {
       list-style: none;
       padding: 8px;
       margin: 0;
-      background-color: rgba(255, 255, 255, 0.6);
-      border: 1px solid rgba(0, 0, 0, 0.04);
-      border-radius: 16px;
+      background-color: var(--color-bg-card);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-lg);
+      transition:
+        background-color var(--transition-base),
+        border-color var(--transition-base);
 
       .hot-item {
         display: flex;
         align-items: center;
         gap: 10px;
         padding: 10px 12px;
-        border-radius: 8px;
+        border-radius: var(--radius-sm);
         cursor: pointer;
-        transition: background-color 0.2s;
+        transition: background-color var(--transition-fast);
 
         &:hover {
-          background-color: rgba(0, 0, 0, 0.04);
+          background-color: var(--color-surface-hover);
         }
 
         .hot-rank {
           width: 20px;
           font-size: 14px;
           font-weight: 700;
-          color: #ccc;
+          color: var(--color-text-placeholder);
           text-align: center;
           flex-shrink: 0;
+          transition: color var(--transition-base);
 
           &.top-three {
-            color: #ff5a5f;
+            color: var(--color-primary);
           }
         }
 
         .hot-keyword {
           flex: 1;
           font-size: 14px;
-          color: #333;
+          color: var(--color-text);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+          transition: color var(--transition-base);
         }
 
         .hot-fire {
@@ -439,131 +429,19 @@ const handleSongClick = (songId: number) => {
   // ── 搜索结果 ─────────────────────────────────────────────────
   .empty-state {
     text-align: center;
-    color: #999;
+    color: var(--color-text-tertiary);
     padding: 40px 0;
+    font-size: 14px;
   }
 
   .song-list {
-    list-style: none;
-    padding: 16px;
-    margin: 0;
-    background-color: rgba(255, 255, 255, 0.6);
-    border: 1px solid rgba(0, 0, 0, 0.04);
-    border-radius: 16px;
-
-    .song-item {
-      display: flex;
-      align-items: center;
-      padding: 12px 16px;
-      border-radius: 8px;
-      transition: background-color 0.2s;
-      cursor: pointer;
-
-      &:hover {
-        background-color: rgba(0, 0, 0, 0.04);
-      }
-
-      > div {
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-
-      .song-index {
-        width: 40px;
-        flex-shrink: 0;
-        color: #999;
-        font-size: 14px;
-        text-align: center;
-      }
-
-      .song-info {
-        flex: 1;
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        overflow: hidden;
-
-        .song-name-wrapper {
-          flex: 3;
-          min-width: 0;
-          padding-right: 16px;
-          display: flex;
-          align-items: center;
-
-          .song-name {
-            font-size: 15px;
-            color: #333;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-          }
-
-          .vip-tag {
-            font-size: 10px;
-            color: #ff5a5f;
-            border: 1px solid #ff5a5f;
-            padding: 0 4px;
-            margin-left: 6px;
-            border-radius: 4px;
-            font-weight: 600;
-            flex-shrink: 0;
-            position: relative;
-            top: -1px;
-            line-height: normal;
-          }
-        }
-
-        .song-artist {
-          flex: 4;
-          min-width: 0;
-          font-size: 13px;
-          color: #666;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          padding-right: 16px;
-        }
-      }
-
-      .song-duration {
-        width: 50px;
-        flex-shrink: 0;
-        text-align: right;
-        color: #999;
-        font-size: 13px;
-      }
-
-      @media (max-width: 768px) {
-        padding: 12px 8px;
-
-        .song-index {
-          width: 32px;
-        }
-
-        .song-duration {
-          display: none;
-        }
-
-        .song-info {
-          flex-direction: column;
-          align-items: stretch;
-
-          .song-name-wrapper {
-            flex: none;
-            padding-right: 0;
-            margin-bottom: 4px;
-          }
-
-          .song-artist {
-            flex: none;
-            padding-right: 0;
-            font-size: 12px;
-            color: #999;
-          }
-        }
-      }
-    }
+    background-color: var(--color-bg-card);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 6px;
+    transition:
+      background-color var(--transition-base),
+      border-color var(--transition-base);
   }
 }
 </style>

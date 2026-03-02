@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { useRouter, useRoute } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { ChevronDown, Play, Pause, SkipBack, SkipForward } from 'lucide-vue-next'
 import { usePlayerStore } from '@/stores/player'
 import { ref, watch, nextTick, computed, onMounted } from 'vue'
+import { formatSeconds as formatTime } from '@/utils/format'
 
-const router = useRouter()
 const route = useRoute()
 const playerStore = usePlayerStore()
 
@@ -16,8 +16,8 @@ const goBack = () => {
   if (isExiting.value) return
   isExiting.value = true
   setTimeout(() => {
-    router.back()
-  }, 300)
+    playerStore.closePlayer()
+  }, 360) // 动画时长 350ms，留 10ms 缓冲确保动画完成后再关闭覆盖层
 }
 
 // 挂载时检查 URL 参数
@@ -76,14 +76,6 @@ const progressPercent = computed(() => {
   if (!playerStore.duration) return 0
   return (displayTime.value / playerStore.duration) * 100
 })
-
-// 时长格式化
-const formatTime = (timeInSeconds: number) => {
-  if (!timeInSeconds || isNaN(timeInSeconds)) return '00:00'
-  const m = Math.floor(timeInSeconds / 60)
-  const s = Math.floor(timeInSeconds % 60)
-  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
-}
 
 // 移动端大封面模式 (默认关闭，显示大歌词)
 const isMobileCoverMode = ref(false)
@@ -993,12 +985,12 @@ const cycleQuality = () => {
 }
 
 .empty-fallback {
-  background-color: #f5f5f5;
+  background-color: var(--color-bg);
   justify-content: center;
   align-items: center;
 }
 .fallback-btn {
-  color: #333;
+  color: var(--color-text);
   gap: 8px;
   font-size: 16px;
   font-weight: 500;
@@ -1009,7 +1001,7 @@ const cycleQuality = () => {
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  color: #666;
+  color: var(--color-text-secondary);
 }
 
 /* 全屏 Loading 遮罩 */

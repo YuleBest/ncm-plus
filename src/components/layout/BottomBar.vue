@@ -11,7 +11,6 @@
     </div>
     <div class="bottom-nav-item">
       <svg class="bottom-icon" viewBox="0 0 24 24">
-        <!-- 统一采用简洁通用图表示意该业务分界线 -->
         <path
           d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"
         />
@@ -44,7 +43,7 @@
   display: flex;
   align-items: center;
   justify-content: space-around;
-  border-top: 1px solid rgba(0, 0, 0, 0.04);
+  border-top: 1px solid var(--color-border-subtle);
   z-index: 10;
   flex-shrink: 0;
   padding-bottom: env(safe-area-inset-bottom);
@@ -63,26 +62,31 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #888;
+  color: var(--color-text-tertiary);
   font-size: 11px;
   font-weight: 500;
   cursor: pointer;
-  transition: color 0.3s ease;
+  transition: color var(--transition-fast);
   padding: 4px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
+  gap: 3px;
 }
 
 /* 激活和悬浮状态 */
 .bottom-nav-item:hover,
 .bottom-nav-item.active {
-  color: #ff5a5f;
+  color: var(--color-primary);
 }
 
 /* 底部图标 */
 .bottom-icon {
   width: 22px;
   height: 22px;
-  margin-bottom: 3px;
   fill: currentColor;
+  transition: transform 0.2s ease;
+}
+
+.bottom-nav-item.active .bottom-icon {
+  transform: scale(1.1);
 }
 </style>

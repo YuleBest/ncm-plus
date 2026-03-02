@@ -16,7 +16,7 @@ defineProps<{
 .layout-sidebar {
   width: 240px;
   height: 100%;
-  border-right: 1px solid rgba(0, 0, 0, 0.04);
+  border-right: 1px solid var(--color-border-subtle);
   transition:
     width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
     transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
@@ -41,12 +41,14 @@ defineProps<{
     bottom: 0;
     width: 280px;
     transform: translateX(0);
-    border-right: 1px solid rgba(0, 0, 0, 0.06);
+    border-right: 1px solid var(--color-border);
+    box-shadow: var(--shadow-lg);
   }
 
   .layout-sidebar.sidebar-collapsed {
     width: 280px;
     transform: translateX(-100%);
+    box-shadow: none;
   }
 }
 </style>
