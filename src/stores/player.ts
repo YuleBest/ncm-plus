@@ -38,6 +38,8 @@ export const usePlayerStore = defineStore('player', () => {
     currentTime.value = audio.currentTime
     // 同步歌词高亮
     updateLyricIndex(audio.currentTime * 1000)
+    // 更新 Media Session 进度状态
+    syncPlaybackPosition()
   })
 
   audio.addEventListener('loadedmetadata', () => {
@@ -59,10 +61,12 @@ export const usePlayerStore = defineStore('player', () => {
   audio.addEventListener('playing', () => {
     isPlaying.value = true
     isLoading.value = false
+    updateMediaSessionPlaybackState('playing')
   })
 
   audio.addEventListener('pause', () => {
     isPlaying.value = false
+    updateMediaSessionPlaybackState('paused')
   })
 
   // ----- 方法暴露 -----
@@ -117,6 +121,10 @@ export const usePlayerStore = defineStore('player', () => {
       // 发起播放申请
       console.log('Starting playback for URL:', url)
       audio.play()
+
+      // 更新 Media Session 元数据和动作回调
+      updateMediaMetadata()
+      registerMediaActions()
     } catch (err: unknown) {
       console.error('PlaySong Error:', err)
       errorMessage.value = err instanceof Error ? err.message : '加载音乐失败'
@@ -143,6 +151,7 @@ export const usePlayerStore = defineStore('player', () => {
     audio.currentTime = timeInSeconds
     currentTime.value = timeInSeconds
     updateLyricIndex(timeInSeconds * 1000)
+    syncPlaybackPosition()
   }
 
   // 设置音量
@@ -219,6 +228,94 @@ export const usePlayerStore = defineStore('player', () => {
       l_index = timeInMs < firstLyricTime ? 0 : lyrics.value.length - 1
     }
     currentLyricIndex.value = l_index
+  }
+
+  // ----- Media Session API 相关 -----
+
+  const updateMediaMetadata = () => {
+    if (!('mediaSession' in navigator) || !currentSong.value) return
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: currentSong.value.name,
+      artist: currentSong.value.ar?.[0]?.name || 'Unknown Artist',
+      album: currentSong.value.al?.name || '',
+      artwork: [
+        {
+          src: currentSong.value.al?.picUrl + '?param=96y96',
+          sizes: '96x96',
+          type: 'image/jpeg',
+        },
+        {
+          src: currentSong.value.al?.picUrl + '?param=128y128',
+          sizes: '128x128',
+          type: 'image/jpeg',
+        },
+        {
+          src: currentSong.value.al?.picUrl + '?param=256y256',
+          sizes: '256x256',
+          type: 'image/jpeg',
+        },
+        {
+          src: currentSong.value.al?.picUrl + '?param=384y384',
+          sizes: '384x384',
+          type: 'image/jpeg',
+        },
+        {
+          src: currentSong.value.al?.picUrl + '?param=512y512',
+          sizes: '512x512',
+          type: 'image/jpeg',
+        },
+      ],
+    })
+  }
+
+  const updateMediaSessionPlaybackState = (state: 'playing' | 'paused' | 'none') => {
+    if (!('mediaSession' in navigator)) return
+    navigator.mediaSession.playbackState = state
+  }
+
+  const syncPlaybackPosition = () => {
+    if (!('mediaSession' in navigator) || !audio.duration) return
+    try {
+      navigator.mediaSession.setPositionState({
+        duration: audio.duration,
+        playbackRate: audio.playbackRate,
+        position: audio.currentTime,
+      })
+    } catch (e) {
+      // 某些浏览器可能在快速切换或 duration 为 NaN 时报错
+      console.warn('MS setPositionState error:', e)
+    }
+  }
+
+  const registerMediaActions = () => {
+    if (!('mediaSession' in navigator)) return
+
+    const actions: [MediaSessionAction, () => void][] = [
+      ['play', () => audio.play()],
+      ['pause', () => audio.pause()],
+      ['stop', () => audio.pause()],
+      // 未来可扩展 previoustrack / nexttrack
+    ]
+
+    for (const [action, handler] of actions) {
+      try {
+        navigator.mediaSession.setActionHandler(action, handler)
+      } catch (e) {
+        console.warn(`Media session action ${action} not supported`, e)
+      }
+    }
+
+    // 特殊处理 seekto
+    try {
+      navigator.mediaSession.setActionHandler('seekto', (details) => {
+        if (details.seekTime !== undefined) {
+          seek(details.seekTime)
+        }
+      })
+    } catch (e) {
+      console.warn('Media session action seekto not supported', e)
+    }
   }
 
   return {

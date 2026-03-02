@@ -36,3 +36,9 @@
   height: 24px;
   fill: currentColor;
 }
+
+// 关闭移动端蓝框
+body {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}

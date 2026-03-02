@@ -1,8 +1,9 @@
 import axios from 'axios'
 
 const request = axios.create({
-  baseURL: 'https://ncm.api.yule.ink',
+  baseURL: 'https://ncmapi.yule.ink',
   timeout: 20000,
+  withCredentials: true,
 })
 
 // 拦截器：添加真实ip
