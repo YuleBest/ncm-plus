@@ -177,6 +177,21 @@ watch(isMobileCoverMode, (newVal) => {
     scrollToCurrentLyric(true)
   }
 })
+
+const qualityLabelMap = {
+  exhigh: '极高',
+  higher: '较高',
+  standard: '标准',
+} as const
+
+const cycleQuality = () => {
+  const map: Record<'standard' | 'higher' | 'exhigh', 'standard' | 'higher' | 'exhigh'> = {
+    exhigh: 'higher',
+    higher: 'standard',
+    standard: 'exhigh',
+  }
+  playerStore.setTargetQuality(map[playerStore.targetQuality])
+}
 </script>
 
 <template>
@@ -201,7 +216,17 @@ watch(isMobileCoverMode, (newVal) => {
         <div class="song-title">{{ playerStore.currentSong.name }}</div>
         <div class="song-artist">{{ playerStore.currentSong.ar?.[0]?.name }}</div>
       </div>
-      <div class="nav-placeholder"></div>
+
+      <!-- 音质切换 -->
+      <div class="quality-switcher" @click="cycleQuality">
+        <span class="quality-badge">{{ qualityLabelMap[playerStore.targetQuality] }}</span>
+        <span
+          class="quality-actual"
+          v-if="playerStore.currentQuality !== playerStore.targetQuality"
+        >
+          (实际: {{ qualityLabelMap[playerStore.currentQuality] }})
+        </span>
+      </div>
     </header>
 
     <!-- 核心视图区 -->
@@ -292,11 +317,23 @@ watch(isMobileCoverMode, (newVal) => {
 
           <!-- 按钮组 -->
           <div class="actions-row">
-            <button class="action-btn" disabled>
+            <button
+              class="action-btn"
+              @click="playerStore.prevSong"
+              :disabled="playerStore.playlist.length <= 1"
+            >
               <SkipBack
                 :size="30"
-                color="rgba(255,255,255,0.4)"
-                fill="rgba(255,255,255,0.4)"
+                :color="
+                  playerStore.playlist.length <= 1
+                    ? 'rgba(255,255,255,0.2)'
+                    : 'rgba(255,255,255,0.8)'
+                "
+                :fill="
+                  playerStore.playlist.length <= 1
+                    ? 'rgba(255,255,255,0.2)'
+                    : 'rgba(255,255,255,0.8)'
+                "
                 :stroke-width="0"
               />
             </button>
@@ -317,11 +354,23 @@ watch(isMobileCoverMode, (newVal) => {
                 style="margin-left: 4px"
               />
             </button>
-            <button class="action-btn" disabled>
+            <button
+              class="action-btn"
+              @click="playerStore.nextSong"
+              :disabled="playerStore.playlist.length <= 1"
+            >
               <SkipForward
                 :size="30"
-                color="rgba(255,255,255,0.4)"
-                fill="rgba(255,255,255,0.4)"
+                :color="
+                  playerStore.playlist.length <= 1
+                    ? 'rgba(255,255,255,0.2)'
+                    : 'rgba(255,255,255,0.8)'
+                "
+                :fill="
+                  playerStore.playlist.length <= 1
+                    ? 'rgba(255,255,255,0.2)'
+                    : 'rgba(255,255,255,0.8)'
+                "
                 :stroke-width="0"
               />
             </button>
@@ -464,8 +513,34 @@ watch(isMobileCoverMode, (newVal) => {
   align-items: center;
   justify-content: center;
 }
-.nav-placeholder {
-  width: 44px; /* balance the flex center */
+.quality-switcher {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  cursor: pointer;
+  padding: 4px;
+  min-width: 44px; /* balance the flex center */
+}
+.quality-badge {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  user-select: none;
+}
+.quality-badge:active {
+  background: rgba(255, 255, 255, 0.2);
+}
+.quality-actual {
+  font-size: 9px;
+  color: rgba(255, 149, 0, 0.9);
+  margin-top: 2px;
+  transform: scale(0.9);
+  transform-origin: right;
+  white-space: nowrap;
 }
 .header-info {
   flex: 1;

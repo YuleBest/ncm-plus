@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Play, Pause } from 'lucide-vue-next'
+import { Play, Pause, Loader2, SkipForward, SkipBack } from 'lucide-vue-next'
 import { usePlayerStore } from '@/stores/player'
 import { useRouter } from 'vue-router'
 
@@ -21,15 +21,37 @@ const goDetail = () => {
 
     <div class="mp-info">
       <div class="mp-name">{{ playerStore.currentSong.name }}</div>
-      <div class="mp-artist">{{ playerStore.currentSong.ar?.[0]?.name || '未知歌手' }}</div>
-    </div>
-
-    <div class="mp-controls" @click.stop>
-      <button class="mp-btn" @click="playerStore.togglePlay">
-        <Loader2 v-if="playerStore.isLoading" class="icon-spin" :size="20" />
-        <Pause v-else-if="playerStore.isPlaying" :size="20" />
-        <Play v-else :size="20" class="ml-1" />
-      </button>
+      <div class="controls">
+        <button
+          class="control-btn"
+          @click.stop="playerStore.prevSong"
+          title="上一首"
+          :disabled="playerStore.playlist.length <= 1"
+        >
+          <SkipBack
+            :size="24"
+            :color="playerStore.playlist.length <= 1 ? '#ccc' : '#333'"
+            :fill="playerStore.playlist.length <= 1 ? '#ccc' : '#333'"
+          />
+        </button>
+        <button class="control-btn play-btn" @click.stop="playerStore.togglePlay" title="播放/暂停">
+          <Loader2 v-if="playerStore.isLoading" class="icon-spin" :size="24" color="#333" />
+          <Pause v-else-if="playerStore.isPlaying" :size="24" color="#333" fill="#333" />
+          <Play v-else :size="24" color="#333" fill="#333" style="margin-left: 2px" />
+        </button>
+        <button
+          class="control-btn"
+          @click.stop="playerStore.nextSong"
+          title="下一首"
+          :disabled="playerStore.playlist.length <= 1"
+        >
+          <SkipForward
+            :size="24"
+            :color="playerStore.playlist.length <= 1 ? '#ccc' : '#333'"
+            :fill="playerStore.playlist.length <= 1 ? '#ccc' : '#333'"
+          />
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -47,11 +69,17 @@ const goDetail = () => {
   padding: 0 8px 0 8px;
   cursor: pointer;
   z-index: 100;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  /* box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); 改为扁平化 */
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background-color: rgba(255, 255, 255, 0.85); /* 稍微提升不透明度 */
   transition:
     transform 0.3s ease,
     bottom 0.3s ease;
+}
+
+button {
+  background: none !important;
+  border: none !important;
 }
 
 /* 宽屏隐藏 BottomBar, 迷你播放器下沉贴底 */

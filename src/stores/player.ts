@@ -11,6 +11,8 @@ export interface ParsedLyric {
   translation?: string
 }
 
+export type AudioQuality = 'standard' | 'higher' | 'exhigh'
+
 export const usePlayerStore = defineStore('player', () => {
   // 核心原生音频对象
   const audio = new Audio()
@@ -24,6 +26,15 @@ export const usePlayerStore = defineStore('player', () => {
   // 当前歌曲信息
   const currentSong = ref<SongDetail | null>(null)
   const currentUrl = ref<string>('')
+
+  const targetQuality = ref<AudioQuality>(
+    (localStorage.getItem('ncm-audio-quality') as AudioQuality) || 'exhigh',
+  )
+  const currentQuality = ref<AudioQuality>('standard')
+
+  // 播放列表状态
+  const playlist = ref<SongDetail[]>([])
+  const currentPlaylistIndex = ref(-1)
 
   // 歌词数据
   const lyrics = ref<ParsedLyric[]>([])
@@ -48,7 +59,7 @@ export const usePlayerStore = defineStore('player', () => {
 
   audio.addEventListener('ended', () => {
     isPlaying.value = false
-    // TODO: 未来可在此处扩展自动下一首逻辑
+    nextSong()
   })
 
   audio.addEventListener('error', (e) => {
@@ -83,10 +94,26 @@ export const usePlayerStore = defineStore('player', () => {
         throw new Error(checkRes.data?.message || '歌曲不可用/无版权')
       }
 
+      // 处理降级获取 URL
+      const fetchUrlWithFallback = async () => {
+        const levels: AudioQuality[] = ['exhigh', 'higher', 'standard']
+        const startIndex = levels.indexOf(targetQuality.value)
+        const fallbackLevels = levels.slice(startIndex !== -1 ? startIndex : 0)
+
+        for (const level of fallbackLevels) {
+          const res = await getSongUrl({ id, level })
+          const urlData = res.data?.data?.[0] as Record<string, unknown> | undefined
+          if (urlData?.url) {
+            return { url: urlData.url as string, level }
+          }
+        }
+        throw new Error('无法获取播放链接，可能为 VIP 专享或全音质无版权')
+      }
+
       // 2. 并行获取 详情 + URL + 歌词
-      const [detailRes, urlRes, lyricRes] = await Promise.all([
+      const [detailRes, urlDataObj, lyricRes] = await Promise.all([
         getSongDetail({ ids: String(id) }),
-        getSongUrl({ id, level: 'standard' }),
+        fetchUrlWithFallback(),
         getSongLyric({ id }),
       ])
 
@@ -94,10 +121,8 @@ export const usePlayerStore = defineStore('player', () => {
       if (!detailRes.data?.songs?.length) throw new Error('无法获取歌曲详情')
       const songData = detailRes.data.songs[0]
 
-      const urlDataList = urlRes.data?.data
-      const urlData = urlDataList?.[0] as Record<string, unknown> | undefined
-      const url = urlData?.url as string | undefined
-      if (!url) throw new Error('无法获取播放链接，可能为 VIP 专享')
+      const url = urlDataObj.url
+      currentQuality.value = urlDataObj.level as AudioQuality
 
       // 解析并存储歌词
       const lyricData = lyricRes.data
@@ -113,6 +138,20 @@ export const usePlayerStore = defineStore('player', () => {
       currentSong.value = songData as SongDetail
       currentUrl.value = url
       currentLyricIndex.value = 0
+
+      // 如果当前播放列表为空，或者播放的歌曲不在列表中，临时将其作为单曲播放列表
+      if (playlist.value.length === 0 || currentPlaylistIndex.value === -1) {
+        if (!playlist.value.find((s) => s.id === songData?.id)) {
+          playlist.value = [songData as SongDetail]
+          currentPlaylistIndex.value = 0
+        }
+      } else {
+        // 如果是从列表中选歌播放，确保 index 正确
+        const idx = playlist.value.findIndex((s) => s.id === id)
+        if (idx !== -1) {
+          currentPlaylistIndex.value = idx
+        }
+      }
 
       // 装载音频对象
       audio.src = url
@@ -135,6 +174,25 @@ export const usePlayerStore = defineStore('player', () => {
     }
   }
 
+  // 设置目标音质
+  const setTargetQuality = (quality: AudioQuality) => {
+    targetQuality.value = quality
+    localStorage.setItem('ncm-audio-quality', quality)
+    // 如果正在播放并且不是处于加载中，则重新加载当前歌曲以应用新音质
+    if (currentSong.value && currentUrl.value) {
+      const time = currentTime.value
+      const wasPlaying = isPlaying.value
+      playSong(currentSong.value.id).then(() => {
+        // 恢复播放进度
+        seek(time)
+        if (!wasPlaying && !audio.paused) {
+          audio.pause()
+          isPlaying.value = false
+        }
+      })
+    }
+  }
+
   // 暂停/恢复 切换
   const togglePlay = () => {
     if (!currentUrl.value) return
@@ -143,6 +201,36 @@ export const usePlayerStore = defineStore('player', () => {
     } else {
       audio.pause()
     }
+  }
+
+  // 播放整个歌单
+  const playList = (songs: SongDetail[], startIndex = 0) => {
+    if (!songs.length) return
+    playlist.value = songs
+    currentPlaylistIndex.value = startIndex
+    playSong(songs[startIndex]!.id)
+  }
+
+  // 上一首
+  const prevSong = () => {
+    if (playlist.value.length <= 1) return
+    let prevIdx = currentPlaylistIndex.value - 1
+    if (prevIdx < 0) {
+      prevIdx = playlist.value.length - 1
+    }
+    currentPlaylistIndex.value = prevIdx
+    playSong(playlist.value[prevIdx]!.id)
+  }
+
+  // 下一首
+  const nextSong = () => {
+    if (playlist.value.length <= 1) return
+    let nextIdx = currentPlaylistIndex.value + 1
+    if (nextIdx >= playlist.value.length) {
+      nextIdx = 0
+    }
+    currentPlaylistIndex.value = nextIdx
+    playSong(playlist.value[nextIdx]!.id)
   }
 
   // 拖动进度条
@@ -295,7 +383,8 @@ export const usePlayerStore = defineStore('player', () => {
       ['play', () => audio.play()],
       ['pause', () => audio.pause()],
       ['stop', () => audio.pause()],
-      // 未来可扩展 previoustrack / nexttrack
+      ['previoustrack', () => prevSong()],
+      ['nexttrack', () => nextSong()],
     ]
 
     for (const [action, handler] of actions) {
@@ -326,15 +415,22 @@ export const usePlayerStore = defineStore('player', () => {
     volume,
     currentSong,
     currentUrl,
+    targetQuality,
+    currentQuality,
+    playlist,
+    currentPlaylistIndex,
     lyrics,
     currentLyricIndex,
     isLoading,
     errorMessage,
-    // methods
     playSong,
+    playList,
+    prevSong,
+    nextSong,
     togglePlay,
     seek,
     setVolume,
+    setTargetQuality,
     unlock,
   }
 })

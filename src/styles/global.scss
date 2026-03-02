@@ -1,5 +1,13 @@
 /* 全局复用的 UI 样式 */
 
+html,
+body,
+:root {
+  font-family:
+    -apple-system, 'PingFang SC', 'PingFang UI SC', 'SF Pro', 'Inter', BlinkMacSystemFont,
+    'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
 /* 毛玻璃效果 */
 .glass-effect {
   background-color: rgba(255, 255, 255, 0.75);
@@ -38,7 +46,7 @@
 }
 
 // 关闭移动端蓝框
-body {
+body * {
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
 }

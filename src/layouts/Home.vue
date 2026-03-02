@@ -72,7 +72,6 @@ onUnmounted(() => {
   height: 100%;
   overflow: hidden;
   background-color: #f7f9fc;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   position: relative; /* 确保内部绝对定位元素以此为参考 */
   transition: background-color 0.5s ease;
 }
@@ -120,7 +119,7 @@ onUnmounted(() => {
 .layout-content-area {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
+  padding: 0px;
   scroll-behavior: smooth;
 }
 

@@ -117,41 +117,51 @@ const handleSongClick = (songId: number) => {
 
   .song-list {
     list-style: none;
-    padding: 0;
+    padding: 16px;
     margin: 0;
     background-color: rgba(255, 255, 255, 0.6);
-    border-radius: 12px;
-    overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, 0.04);
+    border-radius: 16px;
 
     .song-item {
       display: flex;
       align-items: center;
       padding: 12px 16px;
+      border-radius: 8px;
       transition: background-color 0.2s;
+      cursor: pointer;
 
       &:hover {
         background-color: rgba(0, 0, 0, 0.04);
       }
 
-      &:not(:last-child) {
-        border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+      > div {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
 
       .song-index {
         width: 40px;
+        flex-shrink: 0;
         color: #999;
         font-size: 14px;
+        text-align: center;
       }
 
       .song-info {
         flex: 1;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
         overflow: hidden;
 
         .song-name-wrapper {
+          flex: 3;
+          min-width: 0;
+          padding-right: 16px;
           display: flex;
           align-items: center;
-          gap: 6px;
-          margin-bottom: 4px;
 
           .song-name {
             font-size: 15px;
@@ -163,30 +173,68 @@ const handleSongClick = (songId: number) => {
 
           .vip-tag {
             font-size: 10px;
-            color: #ff3b30;
-            border: 1px solid #ff3b30;
+            color: #ff5a5f;
+            border: 1px solid #ff5a5f;
             padding: 0 4px;
+            margin-left: 6px;
             border-radius: 4px;
-            font-weight: bold;
+            font-weight: 600;
             flex-shrink: 0;
+            position: relative;
+            top: -1px;
             line-height: normal;
           }
         }
 
         .song-artist {
+          flex: 4;
+          min-width: 0;
           font-size: 13px;
-          color: #888;
+          color: #666;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+          padding-right: 16px;
         }
       }
 
       .song-duration {
-        width: 60px;
+        width: 50px;
+        flex-shrink: 0;
         text-align: right;
         color: #999;
         font-size: 13px;
+      }
+
+      /* 移动端适配 */
+      @media (max-width: 768px) {
+        padding: 12px 8px;
+
+        .song-index {
+          width: 32px;
+        }
+
+        .song-duration {
+          display: none;
+        }
+
+        .song-info {
+          flex-direction: column;
+          align-items: stretch;
+
+          .song-name-wrapper {
+            flex: none;
+            padding-right: 0;
+            margin-bottom: 4px;
+          }
+
+          .song-artist {
+            flex: none;
+            padding-right: 0;
+            font-size: 12px;
+            color: #999;
+          }
+        }
       }
     }
   }
