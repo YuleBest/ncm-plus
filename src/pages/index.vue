@@ -58,7 +58,7 @@ onMounted(() => {
   <HomeLayout>
     <div class="index-page">
       <!-- 榜单预览 -->
-      <div class="section-container">
+      <div class="section-container toplist-section">
         <SectionHeader title="音乐榜单">
           <button class="view-all-btn" @click="router.push('/toplist')">查看全部</button>
         </SectionHeader>
@@ -146,8 +146,13 @@ onMounted(() => {
     padding: 8px 12px 80px;
 
     .playlist-grid {
-      grid-template-columns: repeat(2, 1fr);
-      gap: 16px 12px;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px 10px;
+    }
+
+    /* 榜单预览：移动端只显示前三个 */
+    .toplist-section .playlist-grid .playlist-card:nth-child(n + 4) {
+      display: none;
     }
   }
 }

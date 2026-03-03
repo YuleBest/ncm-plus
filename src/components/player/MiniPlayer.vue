@@ -77,7 +77,7 @@ const canSkip = computed(() => playerStore.playlist.length > 1)
   right: 12px;
   height: 64px;
   border-radius: 18px;
-  overflow: hidden;
+  /* 不写 overflow:hidden / clip-path，两者均会在 WebKit 上禁用子层的 backdrop-filter */
 
   display: flex;
   align-items: center;
@@ -87,18 +87,31 @@ const canSkip = computed(() => playerStore.playlist.length > 1)
   cursor: pointer;
   z-index: 100;
 
-  background-color: var(--color-glass);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
   border: 1px solid var(--color-glass-border);
   box-shadow: var(--shadow-md), var(--shadow-inset-top);
 
   transition:
     box-shadow 0.2s ease,
-    background-color var(--transition-base),
     border-color var(--transition-base),
     bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1),
     transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /*
+   * 毛玻璃层独立为 ::before，自带相同 border-radius。
+   * 爸元素无裁剪属性，所以 backdrop-filter 可在双端正常渲染。
+   */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -1px; /* 补偿 1px 边框，覆盖至容器边界 */
+    border-radius: 18px;
+    background-color: var(--color-glass);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    transition: background-color var(--transition-base);
+    pointer-events: none;
+    z-index: -1;
+  }
 
   &:hover {
     box-shadow: var(--shadow-lg), var(--shadow-inset-top);
@@ -235,6 +248,9 @@ const canSkip = computed(() => playerStore.playlist.length > 1)
   right: 0;
   height: 2.5px;
   background: var(--color-border);
+  /* 父层无 overflow:hidden，自己加圆角防止超出容器圆角 */
+  border-radius: 0 0 18px 18px;
+  overflow: hidden;
 
   .mp-progress-fill {
     height: 100%;
@@ -257,6 +273,12 @@ const canSkip = computed(() => playerStore.playlist.length > 1)
     &:active {
       transform: translateX(-50%) scale(0.985);
     }
+  }
+
+  /* 宽屏进度条也需随 clip-path 保持圆角内 */
+  .mp-progress {
+    border-radius: 0 0 18px 18px;
+    overflow: hidden;
   }
 }
 
