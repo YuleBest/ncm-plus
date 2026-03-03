@@ -20,16 +20,16 @@ defineEmits<{
     <div class="cover-wrapper">
       <img :src="coverImgUrl + '?param=300y300'" :alt="name" class="cover-img" loading="lazy" />
 
-      <!-- 播放量角标 -->
-      <div class="play-count">
-        <PlayCircle :size="11" class="count-icon" />
-        {{ formatPlayCount(playCount) }}
-      </div>
-
       <!-- 悬浮播放遮罩 -->
       <div class="play-overlay" aria-hidden="true">
         <PlayCircle :size="44" color="#fff" fill="rgba(0,0,0,0.25)" />
       </div>
+    </div>
+
+    <!-- 播放量角标：移出 cover-wrapper，避免 overflow:hidden 截断 backdrop-filter -->
+    <div class="play-count">
+      <PlayCircle :size="11" class="count-icon" />
+      {{ formatPlayCount(playCount) }}
     </div>
 
     <div class="playlist-info">
@@ -45,6 +45,7 @@ defineEmits<{
 <style scoped lang="scss">
 /* ── 卡片容器 ─────────────────────────────────────────────── */
 .playlist-card {
+  position: relative; /* 角标绝对定位的基准 */
   cursor: pointer;
   border-radius: var(--radius-md);
   transition: transform 0.22s ease;
@@ -92,6 +93,7 @@ defineEmits<{
 }
 
 /* ── 播放量角标 ───────────────────────────────────────────── */
+/* 定位相对于 .playlist-card（非 cover-wrapper），脱离 overflow:hidden */
 .play-count {
   position: absolute;
   top: 6px;
@@ -99,15 +101,17 @@ defineEmits<{
   display: flex;
   align-items: center;
   gap: 3px;
-  background: rgba(0, 0, 0, 0.42);
+  background: rgba(0, 0, 0, 0.45);
   color: #fff;
   font-size: 11px;
   font-weight: 500;
   padding: 2px 6px;
   border-radius: var(--radius-full);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(6px) saturate(120%);
+  -webkit-backdrop-filter: blur(6px) saturate(120%);
   line-height: 1.6;
+  pointer-events: none;
+  z-index: 1;
 
   .count-icon {
     flex-shrink: 0;

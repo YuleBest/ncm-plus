@@ -366,8 +366,9 @@ const showResults = computed(
                   class="playlist-cover"
                   loading="lazy"
                 />
-                <span class="play-count">▶ {{ formatPlayCount(pl.playCount) }}</span>
               </div>
+              <!-- 移出 overflow:hidden 容器，避免 backdrop-filter 被截断 -->
+              <span class="play-count">▶ {{ formatPlayCount(pl.playCount) }}</span>
               <p class="playlist-name">{{ pl.name }}</p>
               <p class="playlist-creator">{{ pl.creator?.nickname }}</p>
             </div>
@@ -413,8 +414,9 @@ const showResults = computed(
                   class="album-cover"
                   loading="lazy"
                 />
-                <span class="album-type-tag">{{ album.type }}</span>
               </div>
+              <!-- 移出 overflow:hidden 容器，避免 backdrop-filter 被截断 -->
+              <span class="album-type-tag">{{ album.type }}</span>
               <p class="album-name">{{ album.name }}</p>
               <p class="album-artist">
                 {{
@@ -870,6 +872,7 @@ const showResults = computed(
     }
 
     .playlist-card {
+      position: relative; /* 角标绝对定位基准 */
       cursor: pointer;
       border-radius: var(--radius-md);
       transition: transform 0.22s ease;
@@ -905,6 +908,7 @@ const showResults = computed(
       display: block;
       transition: transform 0.3s ease;
     }
+    /* 定位相对于 .playlist-card（非 cover-wrap），脱离 overflow:hidden */
     .play-count {
       position: absolute;
       top: 5px;
@@ -912,10 +916,13 @@ const showResults = computed(
       font-size: 10px;
       font-weight: 500;
       color: #fff;
-      background: rgba(0, 0, 0, 0.28);
+      background: rgba(0, 0, 0, 0.45);
       padding: 2px 6px;
       border-radius: var(--radius-full);
-      backdrop-filter: blur(4px);
+      backdrop-filter: blur(6px) saturate(120%);
+      -webkit-backdrop-filter: blur(6px) saturate(120%);
+      pointer-events: none;
+      z-index: 1;
     }
     .playlist-name {
       margin: 0 0 3px;
@@ -953,6 +960,7 @@ const showResults = computed(
     }
 
     .album-card {
+      position: relative; /* 类型标签绝对定位基准 */
       cursor: pointer;
       border-radius: var(--radius-md);
       transition: transform 0.22s ease;
@@ -988,6 +996,7 @@ const showResults = computed(
       display: block;
       transition: transform 0.3s ease;
     }
+    /* 定位相对于 .album-card（非 cover-wrap），脱离 overflow:hidden */
     .album-type-tag {
       position: absolute;
       bottom: 6px;
@@ -998,8 +1007,11 @@ const showResults = computed(
       border-radius: var(--radius-full);
       background: rgba(0, 0, 0, 0.5);
       color: #fff;
-      backdrop-filter: blur(4px);
+      backdrop-filter: blur(6px) saturate(120%);
+      -webkit-backdrop-filter: blur(6px) saturate(120%);
       line-height: 1.5;
+      pointer-events: none;
+      z-index: 1;
     }
     .album-name {
       margin: 0 0 3px;

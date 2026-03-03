@@ -299,8 +299,9 @@ watch(
                     class="album-cover"
                     loading="lazy"
                   />
-                  <div class="album-type-tag">{{ album.subType || album.type }}</div>
                 </div>
+                <!-- 移出 overflow:hidden 容器，避免 backdrop-filter 被截断 -->
+                <div class="album-type-tag">{{ album.subType || album.type }}</div>
                 <div class="album-info">
                   <p class="album-name" :title="album.name">{{ album.name }}</p>
                   <p class="album-meta">
@@ -865,6 +866,7 @@ watch(
 }
 
 .album-card {
+  position: relative; /* 类型标签绝对定位基准 */
   cursor: pointer;
   border-radius: var(--radius-md);
   transition: transform 0.22s ease;
@@ -906,6 +908,7 @@ watch(
   transition: transform 0.3s ease;
 }
 
+/* 定位相对于 .album-card（非 cover-wrap），脱离 overflow:hidden */
 .album-type-tag {
   position: absolute;
   bottom: 6px;
@@ -916,9 +919,11 @@ watch(
   border-radius: var(--radius-full);
   background: rgba(0, 0, 0, 0.5);
   color: #fff;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(6px) saturate(120%);
+  -webkit-backdrop-filter: blur(6px) saturate(120%);
   line-height: 1.5;
+  pointer-events: none;
+  z-index: 1;
 }
 
 .album-info {

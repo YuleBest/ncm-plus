@@ -27,77 +27,79 @@ const dashOffset = computed(() => circumference.value * (1 - progressPercent.val
 </script>
 
 <template>
-  <Transition name="mp">
-    <div class="mini-player" v-if="playerStore.currentSong" @click="goDetail">
-      <!-- 封面（静态圆角矩形） -->
-      <div class="mp-cover">
-        <img :src="playerStore.currentSong.al.picUrl + '?param=80y80'" alt="cover" />
-      </div>
-
-      <!-- 歌曲信息 -->
-      <div class="mp-info">
-        <p class="mp-name">{{ playerStore.currentSong.name }}</p>
-        <p class="mp-artist" v-if="artistName">{{ artistName }}</p>
-      </div>
-
-      <!-- 控制按钮 -->
-      <div class="mp-controls">
-        <button
-          class="ctrl-btn"
-          @click.stop="playerStore.prevSong"
-          :disabled="!canSkip"
-          title="上一首"
-        >
-          <SkipBack :size="17" />
-        </button>
-
-        <!-- 播放/暂停 + 环形进度 -->
-        <div class="play-ring-wrap" @click.stop="playerStore.togglePlay" title="播放/暂停">
-          <!-- SVG 环形进度 -->
-          <svg class="ring-svg" viewBox="0 0 48 48" aria-hidden="true">
-            <!-- 轨道 -->
-            <circle
-              class="ring-track"
-              cx="24"
-              cy="24"
-              :r="RING_R"
-              fill="none"
-              :stroke-width="RING_STROKE"
-            />
-            <!-- 进度 -->
-            <circle
-              class="ring-progress"
-              cx="24"
-              cy="24"
-              :r="RING_R"
-              fill="none"
-              :stroke-width="RING_STROKE"
-              :stroke-dasharray="circumference"
-              :stroke-dashoffset="dashOffset"
-              stroke-linecap="round"
-              transform="rotate(-90 24 24)"
-            />
-          </svg>
-
-          <!-- 图标 -->
-          <div class="play-icon-wrap">
-            <Loader2 v-if="playerStore.isLoading" :size="18" class="icon-spin" />
-            <Pause v-else-if="playerStore.isPlaying" :size="18" fill="currentColor" />
-            <Play v-else :size="18" fill="currentColor" class="play-icon" />
-          </div>
+  <Teleport to="body">
+    <Transition name="mp">
+      <div class="mini-player" v-if="playerStore.currentSong" @click="goDetail">
+        <!-- 封面（静态圆角矩形） -->
+        <div class="mp-cover">
+          <img :src="playerStore.currentSong.al.picUrl + '?param=80y80'" alt="cover" />
         </div>
 
-        <button
-          class="ctrl-btn"
-          @click.stop="playerStore.nextSong"
-          :disabled="!canSkip"
-          title="下一首"
-        >
-          <SkipForward :size="17" />
-        </button>
+        <!-- 歌曲信息 -->
+        <div class="mp-info">
+          <p class="mp-name">{{ playerStore.currentSong.name }}</p>
+          <p class="mp-artist" v-if="artistName">{{ artistName }}</p>
+        </div>
+
+        <!-- 控制按钮 -->
+        <div class="mp-controls">
+          <button
+            class="ctrl-btn"
+            @click.stop="playerStore.prevSong"
+            :disabled="!canSkip"
+            title="上一首"
+          >
+            <SkipBack :size="17" />
+          </button>
+
+          <!-- 播放/暂停 + 环形进度 -->
+          <div class="play-ring-wrap" @click.stop="playerStore.togglePlay" title="播放/暂停">
+            <!-- SVG 环形进度 -->
+            <svg class="ring-svg" viewBox="0 0 48 48" aria-hidden="true">
+              <!-- 轨道 -->
+              <circle
+                class="ring-track"
+                cx="24"
+                cy="24"
+                :r="RING_R"
+                fill="none"
+                :stroke-width="RING_STROKE"
+              />
+              <!-- 进度 -->
+              <circle
+                class="ring-progress"
+                cx="24"
+                cy="24"
+                :r="RING_R"
+                fill="none"
+                :stroke-width="RING_STROKE"
+                :stroke-dasharray="circumference"
+                :stroke-dashoffset="dashOffset"
+                stroke-linecap="round"
+                transform="rotate(-90 24 24)"
+              />
+            </svg>
+
+            <!-- 图标 -->
+            <div class="play-icon-wrap">
+              <Loader2 v-if="playerStore.isLoading" :size="18" class="icon-spin" />
+              <Pause v-else-if="playerStore.isPlaying" :size="18" fill="currentColor" />
+              <Play v-else :size="18" fill="currentColor" class="play-icon" />
+            </div>
+          </div>
+
+          <button
+            class="ctrl-btn"
+            @click.stop="playerStore.nextSong"
+            :disabled="!canSkip"
+            title="下一首"
+          >
+            <SkipForward :size="17" />
+          </button>
+        </div>
       </div>
-    </div>
-  </Transition>
+    </Transition>
+  </Teleport>
 </template>
 
 <style scoped lang="scss">

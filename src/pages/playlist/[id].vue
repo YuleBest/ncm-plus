@@ -142,10 +142,11 @@ watch(
                 alt="cover"
                 class="cover-img"
               />
-              <div class="play-count">
-                <PlayCircle :size="11" class="play-count-icon" />
-                {{ formatPlayCount(playlistInfo.playCount) }}
-              </div>
+            </div>
+            <!-- 移出 overflow:hidden 的 cover-wrapper，避免 backdrop-filter 被截断 -->
+            <div class="play-count">
+              <PlayCircle :size="11" class="play-count-icon" />
+              {{ formatPlayCount(playlistInfo.playCount) }}
             </div>
           </div>
 
@@ -308,6 +309,7 @@ watch(
 
 .cover-section {
   flex-shrink: 0;
+  position: relative; /* 播放量角标绝对定位基准 */
 
   .cover-wrapper {
     width: 110px;
@@ -329,23 +331,27 @@ watch(
       object-fit: cover;
       display: block;
     }
+  }
 
-    .play-count {
-      position: absolute;
-      top: 5px;
-      right: 6px;
-      display: flex;
-      align-items: center;
-      gap: 3px;
-      font-size: 11px;
-      font-weight: 500;
-      color: #fff;
-      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-      background: rgba(0, 0, 0, 0.28);
-      padding: 2px 7px;
-      border-radius: var(--radius-full);
-      backdrop-filter: blur(4px);
-    }
+  /* 定位相对于 .cover-section（非 cover-wrapper），脱离 overflow:hidden */
+  .play-count {
+    position: absolute;
+    top: 5px;
+    right: 6px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+    font-weight: 500;
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.45);
+    padding: 2px 7px;
+    border-radius: var(--radius-full);
+    backdrop-filter: blur(6px) saturate(120%);
+    -webkit-backdrop-filter: blur(6px) saturate(120%);
+    pointer-events: none;
+    z-index: 1;
   }
 }
 
