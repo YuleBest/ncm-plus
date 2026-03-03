@@ -8,9 +8,14 @@ import {
   SkipForward,
   MessageCircle,
   Heart,
+  ListMusic,
+  Repeat,
+  Repeat1,
+  Shuffle,
 } from 'lucide-vue-next'
 import { usePlayerStore } from '@/stores/player'
 import CommentPanel from '@/components/player/CommentPanel.vue'
+import PlaylistPanel from '@/components/player/PlaylistPanel.vue'
 import { getSongDetail as getRedCount } from '@/api/song/red/count'
 import { ref, watch, nextTick, computed, onMounted } from 'vue'
 import { formatSeconds as formatTime } from '@/utils/format'
@@ -19,10 +24,18 @@ const route = useRoute()
 const router = useRouter()
 const playerStore = usePlayerStore()
 
-// 评论面板
+// 面板状态
 const showComments = ref(false)
+const showPlaylist = ref(false)
 const commentCount = ref(0)
 const heartCountDesc = ref('')
+
+const togglePlayMode = () => {
+  const modes: ('list' | 'single' | 'random')[] = ['list', 'single', 'random']
+  const idx = modes.indexOf(playerStore.playMode)
+  const nextIdx = (idx + 1) % modes.length
+  playerStore.setPlayMode(modes[nextIdx]!)
+}
 
 const fmtCommentBadge = computed(() => {
   if (commentCount.value <= 0) return ''
@@ -419,9 +432,22 @@ const cycleQuality = () => {
 
           <!-- 按钮组 -->
           <div class="actions-row">
+            <button class="action-btn" @click="togglePlayMode" title="播放模式">
+              <Repeat
+                v-if="playerStore.playMode === 'list'"
+                :size="24"
+                color="rgba(255,255,255,0.8)"
+              />
+              <Repeat1
+                v-else-if="playerStore.playMode === 'single'"
+                :size="24"
+                color="rgba(255,255,255,0.8)"
+              />
+              <Shuffle v-else :size="24" color="rgba(255,255,255,0.8)" />
+            </button>
             <button
               class="action-btn"
-              @click="playerStore.prevSong"
+              @click="() => playerStore.prevSong()"
               :disabled="playerStore.playlist.length <= 1"
             >
               <SkipBack
@@ -458,7 +484,7 @@ const cycleQuality = () => {
             </button>
             <button
               class="action-btn"
-              @click="playerStore.nextSong"
+              @click="() => playerStore.nextSong()"
               :disabled="playerStore.playlist.length <= 1"
             >
               <SkipForward
@@ -475,6 +501,9 @@ const cycleQuality = () => {
                 "
                 :stroke-width="0"
               />
+            </button>
+            <button class="action-btn" @click="showPlaylist = true" title="播放列表">
+              <ListMusic :size="24" color="rgba(255,255,255,0.8)" />
             </button>
           </div>
         </div>
@@ -568,6 +597,9 @@ const cycleQuality = () => {
     @close="showComments = false"
     @update:count="commentCount = $event"
   />
+
+  <!-- 播放列表面板 -->
+  <PlaylistPanel :visible="showPlaylist" @close="showPlaylist = false" />
 </template>
 
 <style lang="scss" scoped>
@@ -1042,8 +1074,8 @@ const cycleQuality = () => {
 .actions-row {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 32px;
+  justify-content: space-between;
+  width: 100%;
 }
 .action-btn {
   background: transparent;
@@ -1112,7 +1144,7 @@ const cycleQuality = () => {
   font-weight: 500;
   line-height: 1.5; /* 增加行高适配换行 */
   cursor: pointer;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 1s cubic-bezier(0.25, 1, 0.5, 1);
   text-align: left;
   transform-origin: left center;
   display: flex;
@@ -1150,7 +1182,7 @@ const cycleQuality = () => {
   font-size: 16px;
   font-weight: 400;
   color: rgba(255, 255, 255, 0.3);
-  transition: all 0.4s ease;
+  transition: all 0.6s cubic-bezier(0.25, 1, 0.5, 1);
 }
 .lyric-empty {
   height: 100%;

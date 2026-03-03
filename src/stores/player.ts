@@ -12,6 +12,7 @@ export interface ParsedLyric {
 }
 
 export type AudioQuality = 'standard' | 'higher' | 'exhigh'
+export type PlayMode = 'list' | 'single' | 'random'
 
 export const usePlayerStore = defineStore('player', () => {
   // 核心原生音频对象
@@ -36,9 +37,18 @@ export const usePlayerStore = defineStore('player', () => {
   const playlist = ref<SongDetail[]>([])
   const currentPlaylistIndex = ref(-1)
 
+  const playMode = ref<PlayMode>((localStorage.getItem('ncm-play-mode') as PlayMode) || 'list')
+  const setPlayMode = (mode: PlayMode) => {
+    playMode.value = mode
+    localStorage.setItem('ncm-play-mode', mode)
+  }
+
   // 歌词数据
   const lyrics = ref<ParsedLyric[]>([])
   const currentLyricIndex = ref(0)
+
+  // URL 缓存：key 格式为 `${songId}-${quality}`
+  const urlCache = new Map<string, string>()
 
   // 加载与错误状态
   const isLoading = ref(false)
@@ -68,7 +78,12 @@ export const usePlayerStore = defineStore('player', () => {
 
   audio.addEventListener('ended', () => {
     isPlaying.value = false
-    nextSong()
+    if (playMode.value === 'single') {
+      audio.currentTime = 0
+      audio.play()
+    } else {
+      nextSong(true)
+    }
   })
 
   audio.addEventListener('error', (e) => {
@@ -91,6 +106,62 @@ export const usePlayerStore = defineStore('player', () => {
 
   // ----- 方法暴露 -----
 
+  // 根据 ID 和目标音质获取带降级的 URL
+  const fetchUrlWithFallback = async (
+    songId: number,
+    target: AudioQuality,
+  ): Promise<{ url: string; level: AudioQuality }> => {
+    const exactCacheKey = `${songId}-${target}`
+    if (urlCache.has(exactCacheKey)) {
+      return { url: urlCache.get(exactCacheKey)!, level: target }
+    }
+
+    const levels: AudioQuality[] = ['exhigh', 'higher', 'standard']
+    const startIndex = levels.indexOf(target)
+    const fallbackLevels = levels.slice(startIndex !== -1 ? startIndex : 0)
+
+    for (const level of fallbackLevels) {
+      const cacheKey = `${songId}-${level}`
+      if (urlCache.has(cacheKey)) {
+        return { url: urlCache.get(cacheKey)!, level }
+      }
+      const res = await getSongUrl({ id: songId, level })
+      const urlData = res.data?.data?.[0] as Record<string, unknown> | undefined
+      if (urlData?.url) {
+        const resolvedUrl = urlData.url as string
+        urlCache.set(cacheKey, resolvedUrl)
+        if (level !== target) {
+          urlCache.set(exactCacheKey, resolvedUrl)
+        }
+        return { url: resolvedUrl, level }
+      }
+    }
+    throw new Error('无法获取播放链接，可能为 VIP 专享或全音质无版权')
+  }
+
+  // 预加载当前曲目 -2 到 +4 首歌的 URL
+  const preloadUrls = () => {
+    if (playlist.value.length <= 1 || currentPlaylistIndex.value === -1) return
+    const len = playlist.value.length
+
+    // Set 用于去重（防歌单较短时重复预加载相同歌曲）
+    const indicesToLoad = new Set<number>()
+    for (let i = -2; i <= 4; i++) {
+      if (i === 0) continue
+      let targetIdx = (currentPlaylistIndex.value + i) % len
+      if (targetIdx < 0) targetIdx += len
+      indicesToLoad.add(targetIdx)
+    }
+
+    indicesToLoad.forEach((idx) => {
+      const songToLoad = playlist.value[idx]
+      if (songToLoad) {
+        // 静默预加载，不抛出错误
+        fetchUrlWithFallback(songToLoad.id, targetQuality.value).catch(() => {})
+      }
+    })
+  }
+
   // 播放指定 ID 的歌曲（完整流程）
   const playSong = async (id: number) => {
     try {
@@ -103,26 +174,10 @@ export const usePlayerStore = defineStore('player', () => {
         throw new Error(checkRes.data?.message || '歌曲不可用/无版权')
       }
 
-      // 处理降级获取 URL
-      const fetchUrlWithFallback = async () => {
-        const levels: AudioQuality[] = ['exhigh', 'higher', 'standard']
-        const startIndex = levels.indexOf(targetQuality.value)
-        const fallbackLevels = levels.slice(startIndex !== -1 ? startIndex : 0)
-
-        for (const level of fallbackLevels) {
-          const res = await getSongUrl({ id, level })
-          const urlData = res.data?.data?.[0] as Record<string, unknown> | undefined
-          if (urlData?.url) {
-            return { url: urlData.url as string, level }
-          }
-        }
-        throw new Error('无法获取播放链接，可能为 VIP 专享或全音质无版权')
-      }
-
       // 2. 并行获取 详情 + URL + 歌词
       const [detailRes, urlDataObj, lyricRes] = await Promise.all([
         getSongDetail({ ids: String(id) }),
-        fetchUrlWithFallback(),
+        fetchUrlWithFallback(id, targetQuality.value),
         getSongLyric({ id }),
       ])
 
@@ -161,6 +216,9 @@ export const usePlayerStore = defineStore('player', () => {
           currentPlaylistIndex.value = idx
         }
       }
+
+      // 触发预加载相邻的歌曲 URL
+      preloadUrls()
 
       // 装载音频对象
       audio.src = url
@@ -222,24 +280,79 @@ export const usePlayerStore = defineStore('player', () => {
 
   // 上一首
   const prevSong = () => {
-    if (playlist.value.length <= 1) return
-    let prevIdx = currentPlaylistIndex.value - 1
-    if (prevIdx < 0) {
-      prevIdx = playlist.value.length - 1
+    if (playlist.value.length === 0) return
+    if (playlist.value.length === 1) {
+      audio.currentTime = 0
+      audio.play()
+      return
+    }
+
+    let prevIdx = currentPlaylistIndex.value
+    if (playMode.value === 'random') {
+      do {
+        prevIdx = Math.floor(Math.random() * playlist.value.length)
+      } while (prevIdx === currentPlaylistIndex.value)
+    } else {
+      prevIdx = currentPlaylistIndex.value - 1
+      if (prevIdx < 0) {
+        prevIdx = playlist.value.length - 1
+      }
     }
     currentPlaylistIndex.value = prevIdx
     playSong(playlist.value[prevIdx]!.id)
   }
 
   // 下一首
-  const nextSong = () => {
-    if (playlist.value.length <= 1) return
-    let nextIdx = currentPlaylistIndex.value + 1
-    if (nextIdx >= playlist.value.length) {
-      nextIdx = 0
+  const nextSong = (isAuto = false) => {
+    if (playlist.value.length === 0) return
+    if (playlist.value.length === 1) {
+      audio.currentTime = 0
+      audio.play()
+      return
+    }
+
+    let nextIdx = currentPlaylistIndex.value
+    if (playMode.value === 'random') {
+      do {
+        nextIdx = Math.floor(Math.random() * playlist.value.length)
+      } while (nextIdx === currentPlaylistIndex.value)
+    } else {
+      nextIdx = currentPlaylistIndex.value + 1
+      if (nextIdx >= playlist.value.length) {
+        nextIdx = 0
+      }
     }
     currentPlaylistIndex.value = nextIdx
     playSong(playlist.value[nextIdx]!.id)
+  }
+
+  // 移除歌曲
+  const removeSong = (index: number) => {
+    if (index < 0 || index >= playlist.value.length) return
+
+    if (index === currentPlaylistIndex.value) {
+      playlist.value.splice(index, 1)
+      if (playlist.value.length === 0) {
+        audio.pause()
+        audio.src = ''
+        isPlaying.value = false
+        currentSong.value = null
+        currentUrl.value = ''
+        currentPlaylistIndex.value = -1
+        return
+      }
+      let nextIdx = index
+      if (nextIdx >= playlist.value.length) {
+        nextIdx = 0
+      }
+      currentPlaylistIndex.value = nextIdx
+      playSong(playlist.value[nextIdx]!.id)
+    } else {
+      playlist.value.splice(index, 1)
+      if (index < currentPlaylistIndex.value) {
+        currentPlaylistIndex.value -= 1
+      }
+    }
   }
 
   // 拖动进度条
@@ -433,9 +546,12 @@ export const usePlayerStore = defineStore('player', () => {
     isLoading,
     errorMessage,
     playSong,
+    playMode,
+    setPlayMode,
     playList,
     prevSong,
     nextSong,
+    removeSong,
     togglePlay,
     seek,
     setVolume,

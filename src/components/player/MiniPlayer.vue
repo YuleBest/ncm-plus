@@ -45,7 +45,7 @@ const dashOffset = computed(() => circumference.value * (1 - progressPercent.val
         <div class="mp-controls">
           <button
             class="ctrl-btn"
-            @click.stop="playerStore.prevSong"
+            @click.stop="() => playerStore.prevSong()"
             :disabled="!canSkip"
             title="上一首"
           >
@@ -90,7 +90,7 @@ const dashOffset = computed(() => circumference.value * (1 - progressPercent.val
 
           <button
             class="ctrl-btn"
-            @click.stop="playerStore.nextSong"
+            @click.stop="() => playerStore.nextSong()"
             :disabled="!canSkip"
             title="下一首"
           >
