@@ -3,16 +3,48 @@ import { ref } from 'vue'
 import { getSongCheck } from '@/api/check/music'
 import { getSongDetail, type SongDetail } from '@/api/song/detail'
 import { getSongUrl } from '@/api/song/url/v1'
-import { getSongLyric } from '@/api/lyric'
+import { getSongLyricNew } from '@/api/lyric/new'
+
+export interface ParsedLyricWord {
+  startTime: number // 毫秒
+  duration: number // 毫秒
+  text: string
+}
 
 export interface ParsedLyric {
-  time: number // 毫秒
+  time: number // 行开始时间，毫秒
   text: string
   translation?: string
+  words?: ParsedLyricWord[] // 逐字歌词（来自 yrc），无此字段时为逐行歌词
 }
 
 export type AudioQuality = 'standard' | 'higher' | 'exhigh'
 export type PlayMode = 'list' | 'single' | 'random'
+
+/** 解析标准 LRC 格式，返回 { time, text } 列表（供 parseLyric / parseYrcLyric 共用） */
+const parseStandardLrc = (lrc: string): { time: number; text: string }[] => {
+  const lines = lrc.split('\n')
+  const timeRegExp = /\[(\d{2,}):(\d{2})(?:\.(\d{2,3}))?]/g
+  const result: { time: number; text: string }[] = []
+
+  for (const line of lines) {
+    timeRegExp.lastIndex = 0
+    const match = timeRegExp.exec(line)
+    if (!match) continue
+
+    const txt = line.replace(timeRegExp, '').trim()
+    if (!txt) continue
+
+    const min = parseInt(match[1] || '0', 10)
+    const sec = parseInt(match[2] || '0', 10)
+    const msStr = match[3] || '0'
+    const ms = parseInt(msStr.padEnd(3, '0'), 10)
+    const timeInMs = min * 60 * 1000 + sec * 1000 + ms
+
+    result.push({ time: timeInMs, text: txt })
+  }
+  return result
+}
 
 export const usePlayerStore = defineStore('player', () => {
   // 核心原生音频对象
@@ -178,7 +210,7 @@ export const usePlayerStore = defineStore('player', () => {
       const [detailRes, urlDataObj, lyricRes] = await Promise.all([
         getSongDetail({ ids: String(id) }),
         fetchUrlWithFallback(id, targetQuality.value),
-        getSongLyric({ id }),
+        getSongLyricNew({ id }),
       ])
 
       // 验证数据完整性
@@ -188,11 +220,16 @@ export const usePlayerStore = defineStore('player', () => {
       const url = urlDataObj.url
       currentQuality.value = urlDataObj.level as AudioQuality
 
-      // 解析并存储歌词
+      // 解析并存储歌词：优先使用逐字歌词（yrc），无则 fallback 到逐行歌词（lrc）
       const lyricData = lyricRes.data
-      const rawLrc = lyricData?.lrc?.lyric || ''
-      const rawTlrc = lyricData?.tlyric?.lyric || ''
-      lyrics.value = parseLyric(rawLrc, rawTlrc)
+      const yrcLyric = lyricData?.yrc?.lyric
+      const lrcLyric = lyricData?.lrc?.lyric || ''
+      const tlrcLyric = lyricData?.tlyric?.lyric || ''
+      const ytlrcLyric = lyricData?.ytlrc?.lyric || ''
+
+      lyrics.value = yrcLyric
+        ? parseYrcLyric(yrcLyric, ytlrcLyric || tlrcLyric)
+        : parseLyric(lrcLyric, tlrcLyric)
 
       if (songData) {
         console.log('Successfully fetched song metadata:', songData.name)
@@ -373,56 +410,76 @@ export const usePlayerStore = defineStore('player', () => {
 
   // ----- 私有辅助方法 -----
 
-  // 解析简易的 lrc 格式歌词，并支持合并翻译歌词
+  /** 解析普通逐行 LRC 歌词，支持合并翻译 */
   const parseLyric = (lrcString: string, tlrcString?: string): ParsedLyric[] => {
     if (!lrcString) return []
+    const mainLyrics = parseStandardLrc(lrcString)
+    const transLyrics = tlrcString ? parseStandardLrc(tlrcString) : []
+    return mainLyrics
+      .map((main) => ({
+        ...main,
+        translation: transLyrics.find((t) => Math.abs(t.time - main.time) < 50)?.text,
+      }))
+      .sort((a, b) => a.time - b.time)
+  }
 
-    const parseLines = (lrc: string) => {
-      const lines = lrc.split('\n')
-      const timeRegExp = /\[(\d{2,}):(\d{2})(?:\.(\d{2,3}))?]/g
-      const result: { time: number; text: string }[] = []
+  /**
+   * 解析 YRC 逐字歌词
+   *
+   * 行格式：[行起始ms,行时长ms](字起始ms,字时长ms,0)字 ...
+   * 开头的 JSON 元数据行（以 { 开头）会被跳过。
+   * tlrcString 为标准 LRC 格式的翻译歌词（ytlrc 或 tlyric），时间戳对齐后合并。
+   */
+  const parseYrcLyric = (yrcString: string, tlrcString?: string): ParsedLyric[] => {
+    if (!yrcString) return []
 
-      for (const line of lines) {
-        timeRegExp.lastIndex = 0
-        const match = timeRegExp.exec(line)
-        if (!match) continue
+    const transLyrics = tlrcString ? parseStandardLrc(tlrcString) : []
+    const result: ParsedLyric[] = []
 
-        const txt = line.replace(timeRegExp, '').trim()
-        if (!txt) continue
+    const lineHeaderReg = /^\[(\d+),\d+\]/
+    const wordReg = /\((\d+),(\d+),\d+\)([^(]*)/g
 
-        const minStr = match[1] || '0'
-        const secStr = match[2] || '0'
-        const msStr = match[3] || '0'
+    for (const line of yrcString.split('\n')) {
+      // 跳过 JSON 元数据行
+      if (line.trim().startsWith('{')) continue
 
-        const min = parseInt(minStr, 10)
-        const sec = parseInt(secStr, 10)
-        const ms = parseInt(msStr.padEnd(3, '0'), 10)
-        const timeInMs = min * 60 * 1000 + sec * 1000 + ms
+      const headerMatch = lineHeaderReg.exec(line)
+      if (!headerMatch) continue
 
-        result.push({ time: timeInMs, text: txt })
+      const lineStart = parseInt(headerMatch[1]!, 10)
+      const words: ParsedLyricWord[] = []
+      let fullText = ''
+
+      wordReg.lastIndex = 0
+      let wordMatch
+      while ((wordMatch = wordReg.exec(line)) !== null) {
+        const text = wordMatch[3]!
+        if (!text) continue
+        words.push({
+          startTime: parseInt(wordMatch[1]!, 10),
+          duration: parseInt(wordMatch[2]!, 10),
+          text,
+        })
+        fullText += text
       }
-      return result
+
+      if (words.length === 0) continue
+
+      result.push({
+        time: lineStart,
+        text: fullText,
+        translation: transLyrics.find((t) => Math.abs(t.time - lineStart) < 50)?.text,
+        words,
+      })
     }
 
-    const mainLyrics = parseLines(lrcString)
-    const transLyrics = tlrcString ? parseLines(tlrcString) : []
-
-    // 合并歌词：以主歌词为基准，寻找相同时间的翻译
-    const mergedLyrics: ParsedLyric[] = mainLyrics.map((main) => {
-      const translation = transLyrics.find((t) => Math.abs(t.time - main.time) < 50)?.text
-      return {
-        ...main,
-        translation,
-      }
-    })
-
-    return mergedLyrics.sort((a, b) => a.time - b.time)
+    return result.sort((a, b) => a.time - b.time)
   }
 
   // 解锁浏览器自动播放限制（由用户手势触发）
   const unlock = () => {
     if (audio.paused) {
-      // 尝试在没有任何 src 的情况下播放并立即暂停，以获取“用户触发”的播放权限
+      // 尝试在没有任何 src 的情况下播放并立即暂停，以获取"用户触发"的播放权限
       audio.play().catch(() => {})
       audio.pause()
     }

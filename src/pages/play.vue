@@ -220,6 +220,16 @@ const shortLyrics = computed(() => {
   return lines
 })
 
+// 逐字歌词：当前播放毫秒数（用于字级高亮）
+const currentTimeMs = computed(() => playerStore.currentTime * 1000)
+
+const getWordClass = (word: { startTime: number; duration: number }) => {
+  const t = currentTimeMs.value
+  if (t >= word.startTime + word.duration) return 'word-past'
+  if (t >= word.startTime) return 'word-current'
+  return ''
+}
+
 // ----- 歌词同步滚动区 -----
 const lyricListRef = ref<HTMLElement | null>(null)
 
@@ -537,12 +547,28 @@ const cycleQuality = () => {
               }"
               @click.stop="handleLyricLineClick(line.time, index)"
             >
-              <template v-if="line.translation">
-                <div class="lyric-trans">{{ line.translation }}</div>
-                <div class="lyric-original">{{ line.text }}</div>
+              <!-- 激活行：逐字歌词 -->
+              <template v-if="line.words && displayLyricIndex === index">
+                <div class="lyric-words">
+                  <span
+                    v-for="(word, wi) in line.words"
+                    :key="wi"
+                    class="lyric-word"
+                    :class="getWordClass(word)"
+                    >{{ word.text }}</span
+                  >
+                </div>
+                <div v-if="line.translation" class="lyric-trans">{{ line.translation }}</div>
               </template>
+              <!-- 逐行歌词 / 非激活的逐字歌词行 -->
               <template v-else>
-                <div class="lyric-text">{{ line.text }}</div>
+                <template v-if="line.translation">
+                  <div class="lyric-trans">{{ line.translation }}</div>
+                  <div class="lyric-original">{{ line.text }}</div>
+                </template>
+                <template v-else>
+                  <div class="lyric-text">{{ line.text }}</div>
+                </template>
               </template>
             </div>
           </div>
@@ -1183,6 +1209,22 @@ const cycleQuality = () => {
   font-weight: 400;
   color: rgba(255, 255, 255, 0.3);
   transition: all 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.lyric-words {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+}
+.lyric-word {
+  color: rgba(255, 255, 255, 0.25);
+  transition: color 0.12s ease;
+  white-space: pre-wrap;
+}
+.lyric-word.word-past {
+  color: rgba(255, 255, 255, 0.9);
+}
+.lyric-word.word-current {
+  color: #fff;
 }
 .lyric-empty {
   height: 100%;
