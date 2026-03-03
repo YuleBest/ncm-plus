@@ -2,8 +2,9 @@
 defineOptions({ name: 'ArtistPage' })
 import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ChevronLeft, Play, Music2, Disc3, Video } from 'lucide-vue-next'
+import { ChevronLeft, Play, Music2, Disc3, Video, Disc } from 'lucide-vue-next'
 import { GetArtists, type GetArtistsResponse } from '@/api/artists'
+import { getArtistAlbums, type ArtistAlbum } from '@/api/artist/album'
 import { usePlayerStore } from '@/stores/player'
 import { type SongDetail } from '@/api/song/detail'
 import HomeLayout from '@/layouts/Home.vue'
@@ -17,6 +18,13 @@ const playerStore = usePlayerStore()
 const artistId = computed(() => Number((route.params as Record<string, string>).id))
 const isLoading = ref(true)
 const artistData = ref<GetArtistsResponse | null>(null)
+
+const albums = ref<ArtistAlbum[]>([])
+const isAlbumsLoading = ref(false)
+const hasMoreAlbums = ref(false)
+const albumsPage = ref(0)
+const ALBUMS_LIMIT = 9
+const activeTab = ref<'songs' | 'albums'>('songs')
 
 const artistInfo = computed(() => artistData.value?.artist ?? null)
 const hotSongs = computed(() => artistData.value?.hotSongs ?? [])
@@ -46,6 +54,33 @@ const fetchArtist = async () => {
   }
 }
 
+const fetchAlbums = async (reset = false) => {
+  const id = artistId.value
+  if (!id) return
+  if (reset) {
+    albums.value = []
+    albumsPage.value = 0
+  }
+  isAlbumsLoading.value = true
+  try {
+    const offset = albumsPage.value * ALBUMS_LIMIT
+    const res = await getArtistAlbums({ id, limit: ALBUMS_LIMIT, offset })
+    if (res.data?.hotAlbums) {
+      albums.value = [...albums.value, ...res.data.hotAlbums]
+      hasMoreAlbums.value = res.data.more
+    }
+  } catch (err) {
+    console.error('Failed to load albums:', err)
+  } finally {
+    isAlbumsLoading.value = false
+  }
+}
+
+const loadMoreAlbums = () => {
+  albumsPage.value++
+  fetchAlbums()
+}
+
 const playAll = () => {
   if (tracksForPlayer.value.length > 0) {
     playerStore.playList(tracksForPlayer.value, 0)
@@ -63,7 +98,10 @@ const goBack = () => router.back()
 watch(
   artistId,
   (id) => {
-    if (id) fetchArtist()
+    if (id) {
+      fetchArtist()
+      fetchAlbums(true)
+    }
   },
   { immediate: true },
 )
@@ -184,35 +222,105 @@ watch(
           </div>
         </div>
 
-        <!-- ── 歌曲列表白板 ──────────────────────────────────── -->
-        <div class="track-list-sheet">
-          <!-- 播放全部吸顶头 -->
-          <div class="play-all-header" @click="playAll">
-            <div class="play-icon-box">
-              <Play :size="14" color="#fff" fill="#fff" />
-            </div>
-            <div class="play-text">
-              <span class="main">播放全部热门</span>
-              <span class="count">{{ hotSongs.length }} 首</span>
+        <!-- ── 标签页白板 ──────────────────────────────────────── -->
+        <div class="content-sheet">
+          <!-- Tab 导航 -->
+          <div class="tab-bar">
+            <!-- 播放全部按鈕（仅歌曲标签显示） -->
+            <button
+              v-if="activeTab === 'songs'"
+              class="play-all-btn"
+              @click.stop="playAll"
+              title="播放全部"
+            >
+              <div class="play-icon-box">
+                <Play :size="13" color="#fff" fill="#fff" />
+              </div>
+              全部播放
+            </button>
+
+            <div class="tab-list">
+              <button
+                class="tab-btn"
+                :class="{ active: activeTab === 'songs' }"
+                @click="activeTab = 'songs'"
+              >
+                热门歌曲
+                <span class="tab-count">{{ hotSongs.length }}</span>
+              </button>
+              <button
+                class="tab-btn"
+                :class="{ active: activeTab === 'albums' }"
+                @click="activeTab = 'albums'"
+              >
+                专辑
+                <span v-if="artistInfo?.albumSize" class="tab-count">{{
+                  artistInfo.albumSize
+                }}</span>
+              </button>
             </div>
           </div>
 
           <!-- 歌曲列表 -->
-          <div v-if="hotSongs.length === 0" class="empty-tracks">暂无歌曲</div>
-          <div v-else class="tracks-list">
-            <SongItem
-              v-for="(song, index) in hotSongs"
-              :key="song.id"
-              :name="song.name"
-              :artist-text="song.ar?.map((a) => a.name).join(' / ') ?? ''"
-              :album-name="song.al?.name"
-              :alia="song.alia ?? undefined"
-              :index="index + 1"
-              :duration-ms="song.dt"
-              :is-vip="song.fee === 1"
-              :playing="playerStore.currentSong?.id === song.id"
-              @click="playSong(index)"
-            />
+          <div v-show="activeTab === 'songs'">
+            <div v-if="hotSongs.length === 0" class="empty-tracks">暂无歌曲</div>
+            <div v-else class="tracks-list">
+              <SongItem
+                v-for="(song, index) in hotSongs"
+                :key="song.id"
+                :name="song.name"
+                :artist-text="song.ar?.map((a) => a.name).join(' / ') ?? ''"
+                :album-name="song.al?.name"
+                :alia="song.alia ?? undefined"
+                :index="index + 1"
+                :duration-ms="song.dt"
+                :is-vip="song.fee === 1"
+                :playing="playerStore.currentSong?.id === song.id"
+                @click="playSong(index)"
+              />
+            </div>
+          </div>
+
+          <!-- 专辑列表 -->
+          <div v-show="activeTab === 'albums'" class="album-panel">
+            <LoadingSpinner v-if="isAlbumsLoading && albums.length === 0" text="加载专辑..." />
+
+            <div v-else-if="albums.length > 0" class="album-grid">
+              <div
+                v-for="album in albums"
+                :key="album.id"
+                class="album-card"
+                @click="router.push(`/album/${album.id}`)"
+              >
+                <div class="album-cover-wrap">
+                  <img
+                    :src="album.picUrl + '?param=300y300'"
+                    :alt="album.name"
+                    class="album-cover"
+                    loading="lazy"
+                  />
+                  <div class="album-type-tag">{{ album.subType || album.type }}</div>
+                </div>
+                <div class="album-info">
+                  <p class="album-name" :title="album.name">{{ album.name }}</p>
+                  <p class="album-meta">
+                    {{ new Date(album.publishTime).getFullYear() }}
+                    <template v-if="album.company"> · {{ album.company }}</template>
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div v-else-if="!isAlbumsLoading" class="empty-albums">暂无专辑</div>
+
+            <button
+              v-if="hasMoreAlbums && !isAlbumsLoading"
+              class="load-more-btn"
+              @click="loadMoreAlbums"
+            >
+              加载更多专辑
+            </button>
+            <LoadingSpinner v-if="isAlbumsLoading && albums.length > 0" text="加载中..." />
           </div>
         </div>
       </div>
@@ -547,8 +655,8 @@ watch(
   }
 }
 
-/* ── 歌曲列表白板 ─────────────────────────────────────────── */
-.track-list-sheet {
+/* ── 标签页白板 ────────────────────────────────────────────── */
+.content-sheet {
   background-color: var(--color-bg);
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   min-height: 50vh;
@@ -558,61 +666,104 @@ watch(
   margin-top: 4px;
 }
 
-/* ── 播放全部吸顶头 ───────────────────────────────────────── */
-.play-all-header {
+/* ── Tab 导航栏 ────────────────────────────────────────────── */
+.tab-bar {
   display: flex;
   align-items: center;
-  padding: 16px 20px;
+  gap: 8px;
+  padding: 12px 16px;
   position: sticky;
   top: 56px;
   background-color: var(--color-bg);
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-  z-index: 40;
-  cursor: pointer;
   border-bottom: 1px solid var(--color-border-subtle);
+  z-index: 40;
   transition:
     background-color var(--transition-slow),
     border-color var(--transition-base);
 
-  &:hover {
-    background-color: var(--color-bg-elevated);
-  }
-
   @media (min-width: 769px) {
-    padding: 18px 40px;
+    padding: 14px 40px;
+    top: 0;
+  }
+}
+
+/* 播放全部按钮 */
+.play-all-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px 6px 8px;
+  border: none;
+  border-radius: var(--radius-full);
+  background-color: var(--color-primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background-color var(--transition-fast),
+    transform var(--transition-fast);
+
+  &:hover {
+    background-color: var(--color-primary-hover);
+  }
+  &:active {
+    transform: scale(0.96);
   }
 
   .play-icon-box {
-    width: 30px;
-    height: 30px;
-    background-color: var(--color-primary);
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
+    background: rgba(255, 255, 255, 0.22);
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-right: 12px;
     flex-shrink: 0;
-    box-shadow: 0 2px 8px var(--color-primary-dim);
+  }
+}
+
+/* Tab 标签列表 */
+.tab-list {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast);
+
+  &:hover {
+    background-color: var(--color-surface-hover);
+    color: var(--color-text);
   }
 
-  .play-text {
-    flex: 1;
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
+  &.active {
+    background-color: var(--color-primary-dim);
+    color: var(--color-primary);
+    font-weight: 600;
+  }
 
-    .main {
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--color-text);
-      transition: color var(--transition-base);
-    }
-
-    .count {
-      font-size: 12px;
-      color: var(--color-text-tertiary);
-      transition: color var(--transition-base);
-    }
+  .tab-count {
+    font-size: 11px;
+    opacity: 0.7;
+    font-weight: 400;
   }
 }
 
@@ -628,12 +779,14 @@ watch(
 .tracks-list {
   display: flex;
   flex-direction: column;
+}
+
+/* ── 专辑面板 ─────────────────────────────────────────────── */
+.album-panel {
+  padding: 20px 16px 32px;
 
   @media (min-width: 769px) {
-    :deep(.song-item) {
-      padding-left: 40px;
-      padding-right: 40px;
-    }
+    padding: 20px 40px 40px;
   }
 }
 
@@ -666,6 +819,161 @@ watch(
       background-color: var(--color-surface-hover);
       color: var(--color-text);
     }
+  }
+}
+/* ── 右栏：专辑区块 ─────────────────────────────────────────────── */
+.album-section {
+  padding: 24px 20px 32px;
+  background-color: var(--color-bg);
+  transition: background-color var(--transition-slow);
+
+  @media (min-width: 769px) {
+    flex: 1;
+    min-width: 0;
+    padding: 20px 24px 40px;
+    background-color: var(--color-bg-elevated);
+    border-radius: 0 var(--radius-xl) 0 0;
+    min-height: 60vh;
+    box-shadow: var(--shadow-md);
+  }
+}
+
+.album-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 18px;
+  transition: color var(--transition-base);
+
+  .album-section-icon {
+    color: var(--color-primary);
+  }
+}
+
+.album-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 20px 16px;
+
+  @media (max-width: 640px) {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px 10px;
+  }
+}
+
+.album-card {
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  transition: transform 0.22s ease;
+
+  &:hover {
+    transform: translateY(-4px);
+
+    .album-cover-wrap {
+      box-shadow: var(--shadow-lg);
+    }
+
+    .album-cover {
+      transform: scale(1.06);
+    }
+  }
+
+  &:active {
+    transform: translateY(-2px) scale(0.98);
+  }
+}
+
+.album-cover-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin-bottom: 8px;
+  background-color: var(--color-bg-sunken);
+  box-shadow: var(--shadow-md);
+  transition: box-shadow var(--transition-base);
+}
+
+.album-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.3s ease;
+}
+
+.album-type-tag {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: var(--radius-full);
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  line-height: 1.5;
+}
+
+.album-info {
+  padding: 0 2px;
+}
+
+.album-name {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color var(--transition-base);
+}
+
+.album-meta {
+  margin: 0;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color var(--transition-base);
+}
+
+.empty-albums {
+  text-align: center;
+  padding: 40px 0;
+  font-size: 14px;
+  color: var(--color-text-tertiary);
+}
+
+.load-more-btn {
+  display: block;
+  margin: 20px auto 0;
+  padding: 8px 24px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+
+  &:hover {
+    background-color: var(--color-surface-hover);
+    color: var(--color-text);
   }
 }
 </style>

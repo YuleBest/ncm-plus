@@ -104,6 +104,7 @@ onMounted(() => {
 <style lang="scss" scoped>
 .index-page {
   padding: 8px 16px 60px;
+  margin: 12px 16px;
 
   .section-container {
     padding: 0;
@@ -143,7 +144,8 @@ onMounted(() => {
 
   /* ── 移动端适配 ───────────────────────────────────────── */
   @media (max-width: 640px) {
-    padding: 8px 12px 80px;
+    padding: 8px 12px 100px;
+    margin: 0 6px;
 
     .playlist-grid {
       grid-template-columns: repeat(3, 1fr);

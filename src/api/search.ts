@@ -1,67 +1,120 @@
-// 搜索音乐
-// 已完成支持：歌曲、歌手
+// 搜索接口
+// type: 1=单曲, 10=专辑, 100=歌手, 1000=歌单
 
 import request from './request'
 
-// 定义请求参数
+// ── 请求参数 ─────────────────────────────────────────────────
 export interface SearchParams {
-  keywords: string // 必选：关键词
-  limit?: number // 可选：返回数量，默认为 30
-  offset?: number // 可选：偏移数量 (页数-1)*limit
-  type?: number // 可选：默认为 1 即单曲 , 取值意义 : 1: 单曲, 10: 专辑, 100: 歌手, 1000:歌单, 1002: 用户, 1004: MV, 1006: 歌词, 1009: 电台, 1014: 视频, 1018:综合, 2000:声音(搜索声音返回字段格式会不一样)
+  keywords: string
+  limit?: number // 默认 30
+  offset?: number // (页数-1)*limit
+  type?: number // 1|10|100|1000
 }
 
-// 定义返回数据的结构
-export interface Song {
+// ── 单曲（type=1） ───────────────────────────────────────────
+export interface SearchSong {
   id: number
   name: string
-  artists: Array<{
-    id: number
-    name: string
-    img1v1Url: string
-  }>
+  alias: string[]
+  artists: Array<{ id: number; name: string; [key: string]: unknown }>
   album: {
     id: number
     name: string
     picId: number
+    [key: string]: unknown
   }
-  duration: number // 时长
-  fee: number // 0: 免费; 1: VIP 歌曲; 4: 购买专辑; 8: 非会员可免费播放低音质，会员可播放高音质及下载
-  [key: string]: unknown // 允许其他不常用的字段存在
-}
-
-// 歌手搜索结果
-export interface ArtistResult {
-  id: number
-  name: string
-  picUrl: string
-  albumSize: number
-  mvSize: number
-  musicSize: number
-  alias?: string[]
+  duration: number // 毫秒
+  fee: number // 0:免费 1:VIP 4:购辑 8:低质
   [key: string]: unknown
 }
 
+// ── 歌手（type=100） ─────────────────────────────────────────
+export interface SearchArtist {
+  id: number
+  name: string
+  picUrl: string
+  img1v1Url: string
+  albumSize: number
+  musicSize: number
+  mvSize: number
+  alias: string[]
+  fansSize?: number
+  trans?: string | null
+  [key: string]: unknown
+}
+
+// ── 专辑（type=10） ──────────────────────────────────────────
+export interface SearchAlbum {
+  id: number
+  name: string
+  picUrl: string
+  publishTime: number
+  company: string | null
+  size: number // 歌曲数
+  type: string // "专辑" / "Single" / "EP/Single"
+  alia?: string[]
+  artist: {
+    id: number
+    name: string
+    picUrl: string
+    [key: string]: unknown
+  }
+  artists: Array<{ id: number; name: string; [key: string]: unknown }>
+  [key: string]: unknown
+}
+
+// ── 歌单（type=1000） ────────────────────────────────────────
+export interface SearchPlaylist {
+  id: number
+  name: string
+  coverImgUrl: string
+  trackCount: number
+  playCount: number
+  creator: {
+    nickname: string
+    userId: number
+    avatarUrl: string
+    [key: string]: unknown
+  }
+  description: string | null
+  [key: string]: unknown
+}
+
+// ── 统一响应 ─────────────────────────────────────────────────
 export interface SearchResponse {
   result: {
-    songs?: Song[]
+    songs?: SearchSong[]
     songCount?: number
-    artists?: ArtistResult[]
+    artists?: SearchArtist[]
     artistCount?: number
+    albums?: SearchAlbum[]
+    albumCount?: number
+    playlists?: SearchPlaylist[]
+    playlistCount?: number
+    hasMore?: boolean
+    [key: string]: unknown
   }
   code: number
+  [key: string]: unknown
 }
 
-// 搜索接口引入
-export const searchMusic = (params: SearchParams) => {
-  return request.get<SearchResponse>('/search', {
-    params,
-  })
-}
+// ── 通用搜索 ─────────────────────────────────────────────────
+export const searchMusic = (params: SearchParams) =>
+  request.get<SearchResponse>('/search', { params })
 
-// 专门搜索歌手（type=100）
-export const searchArtists = (params: Omit<SearchParams, 'type'>) => {
-  return request.get<SearchResponse>('/search', {
-    params: { ...params, type: 100 },
-  })
-}
+// ── 各类型快捷函数 ───────────────────────────────────────────
+export const searchSongs = (params: Omit<SearchParams, 'type'>) =>
+  searchMusic({ ...params, type: 1 })
+
+export const searchArtists = (params: Omit<SearchParams, 'type'>) =>
+  searchMusic({ ...params, type: 100 })
+
+export const searchAlbums = (params: Omit<SearchParams, 'type'>) =>
+  searchMusic({ ...params, type: 10 })
+
+export const searchPlaylists = (params: Omit<SearchParams, 'type'>) =>
+  searchMusic({ ...params, type: 1000 })
+
+// 兼容旧名出口（search.ts 原有的 Song / ArtistResult 名）
+export type Song = SearchSong
+export type ArtistResult = SearchArtist

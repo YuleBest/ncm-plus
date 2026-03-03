@@ -17,13 +17,20 @@ const progressPercent = computed(() => {
 const artistName = computed(() => playerStore.currentSong?.ar?.map((a) => a.name).join(' / ') ?? '')
 
 const canSkip = computed(() => playerStore.playlist.length > 1)
+
+// 环形进度参数
+const RING_R = 20 // 圆半径（SVG 坐标系）
+const RING_STROKE = 2.5 // 线宽
+const circumference = computed(() => 2 * Math.PI * RING_R)
+// dashoffset: 0 = 满圈，circumference = 零
+const dashOffset = computed(() => circumference.value * (1 - progressPercent.value / 100))
 </script>
 
 <template>
   <Transition name="mp">
     <div class="mini-player" v-if="playerStore.currentSong" @click="goDetail">
-      <!-- 封面 -->
-      <div class="mp-cover" :class="{ rotating: playerStore.isPlaying }">
+      <!-- 封面（静态圆角矩形） -->
+      <div class="mp-cover">
         <img :src="playerStore.currentSong.al.picUrl + '?param=80y80'" alt="cover" />
       </div>
 
@@ -44,11 +51,41 @@ const canSkip = computed(() => playerStore.playlist.length > 1)
           <SkipBack :size="17" />
         </button>
 
-        <button class="ctrl-btn play-btn" @click.stop="playerStore.togglePlay" title="播放/暂停">
-          <Loader2 v-if="playerStore.isLoading" :size="20" class="icon-spin" />
-          <Pause v-else-if="playerStore.isPlaying" :size="20" fill="currentColor" />
-          <Play v-else :size="20" fill="currentColor" class="play-icon" />
-        </button>
+        <!-- 播放/暂停 + 环形进度 -->
+        <div class="play-ring-wrap" @click.stop="playerStore.togglePlay" title="播放/暂停">
+          <!-- SVG 环形进度 -->
+          <svg class="ring-svg" viewBox="0 0 48 48" aria-hidden="true">
+            <!-- 轨道 -->
+            <circle
+              class="ring-track"
+              cx="24"
+              cy="24"
+              :r="RING_R"
+              fill="none"
+              :stroke-width="RING_STROKE"
+            />
+            <!-- 进度 -->
+            <circle
+              class="ring-progress"
+              cx="24"
+              cy="24"
+              :r="RING_R"
+              fill="none"
+              :stroke-width="RING_STROKE"
+              :stroke-dasharray="circumference"
+              :stroke-dashoffset="dashOffset"
+              stroke-linecap="round"
+              transform="rotate(-90 24 24)"
+            />
+          </svg>
+
+          <!-- 图标 -->
+          <div class="play-icon-wrap">
+            <Loader2 v-if="playerStore.isLoading" :size="18" class="icon-spin" />
+            <Pause v-else-if="playerStore.isPlaying" :size="18" fill="currentColor" />
+            <Play v-else :size="18" fill="currentColor" class="play-icon" />
+          </div>
+        </div>
 
         <button
           class="ctrl-btn"
@@ -59,11 +96,6 @@ const canSkip = computed(() => playerStore.playlist.length > 1)
           <SkipForward :size="17" />
         </button>
       </div>
-
-      <!-- 底部进度条 -->
-      <div class="mp-progress">
-        <div class="mp-progress-fill" :style="{ width: progressPercent + '%' }" />
-      </div>
     </div>
   </Transition>
 </template>
@@ -72,7 +104,7 @@ const canSkip = computed(() => playerStore.playlist.length > 1)
 /* ── 容器 ─────────────────────────────────────────────────── */
 .mini-player {
   position: absolute;
-  bottom: 72px; /* 移动端：BottomBar(60px) + 12px 间距 */
+  bottom: 20px; /* BottomBar 已移除，统一为 20px */
   left: 12px;
   right: 12px;
   height: 64px;
@@ -96,14 +128,11 @@ const canSkip = computed(() => playerStore.playlist.length > 1)
     bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1),
     transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-  /*
-   * 毛玻璃层独立为 ::before，自带相同 border-radius。
-   * 爸元素无裁剪属性，所以 backdrop-filter 可在双端正常渲染。
-   */
+  /* 毛玻璃层独立为 ::before */
   &::before {
     content: '';
     position: absolute;
-    inset: -1px; /* 补偿 1px 边框，覆盖至容器边界 */
+    inset: -1px;
     border-radius: 18px;
     background-color: var(--color-glass);
     backdrop-filter: blur(24px) saturate(180%);
@@ -122,11 +151,11 @@ const canSkip = computed(() => playerStore.playlist.length > 1)
   }
 }
 
-/* ── 封面 ─────────────────────────────────────────────────── */
+/* ── 封面（静态圆角矩形） ─────────────────────────────────── */
 .mp-cover {
   width: 44px;
   height: 44px;
-  border-radius: 50%;
+  border-radius: 10px; /* 圆角矩形 */
   overflow: hidden;
   flex-shrink: 0;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.22);
@@ -137,20 +166,6 @@ const canSkip = computed(() => playerStore.playlist.length > 1)
     object-fit: cover;
     display: block;
   }
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.rotating {
-  animation: spin 10s linear infinite;
-}
-
-.icon-spin {
-  animation: spin 1s linear infinite;
 }
 
 /* ── 歌曲信息 ─────────────────────────────────────────────── */
@@ -222,42 +237,74 @@ const canSkip = computed(() => playerStore.playlist.length > 1)
     opacity: 0.28;
     cursor: default;
   }
+}
 
-  /* Play 图标居中微调 */
-  .play-icon {
-    translate: 1px 0;
+/* ── 环形进度 + 播放按钮 ──────────────────────────────────── */
+.play-ring-wrap {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  border-radius: 50%;
+
+  &:hover .play-icon-wrap {
+    background-color: var(--color-surface-active);
   }
 
-  /* 播放/暂停按钮：更大更突出 */
-  &.play-btn {
-    width: 40px;
-    height: 40px;
-    background-color: var(--color-surface-hover);
-
-    &:hover {
-      background-color: var(--color-surface-active);
-    }
+  &:active .play-icon-wrap {
+    transform: scale(0.92);
   }
 }
 
-/* ── 进度条 ───────────────────────────────────────────────── */
-.mp-progress {
+.ring-svg {
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 2.5px;
-  background: var(--color-border);
-  /* 父层无 overflow:hidden，自己加圆角防止超出容器圆角 */
-  border-radius: 0 0 18px 18px;
-  overflow: hidden;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 
-  .mp-progress-fill {
-    height: 100%;
-    background: var(--color-primary);
-    border-radius: 0 1px 1px 0;
-    transition: width 0.5s linear;
+  .ring-track {
+    stroke: var(--color-border);
   }
+
+  .ring-progress {
+    stroke: var(--color-primary);
+    transition: stroke-dashoffset 0.5s linear;
+  }
+}
+
+.play-icon-wrap {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background-color: var(--color-surface-hover);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text);
+  transition:
+    background-color var(--transition-fast),
+    transform var(--transition-fast);
+
+  .play-icon {
+    translate: 1px 0;
+  }
+}
+
+/* ── Loading 旋转 ─────────────────────────────────────────── */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.icon-spin {
+  animation: spin 1s linear infinite;
 }
 
 /* ── 宽屏布局 ─────────────────────────────────────────────── */
@@ -269,16 +316,9 @@ const canSkip = computed(() => playerStore.playlist.length > 1)
     transform: translateX(-50%);
     width: min(480px, calc(100% - 32px));
 
-    /* 宽屏 active 需叠加 translateX(-50%) */
     &:active {
       transform: translateX(-50%) scale(0.985);
     }
-  }
-
-  /* 宽屏进度条也需随 clip-path 保持圆角内 */
-  .mp-progress {
-    border-radius: 0 0 18px 18px;
-    overflow: hidden;
   }
 }
 
