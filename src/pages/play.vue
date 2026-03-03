@@ -1168,7 +1168,7 @@ const cycleQuality = () => {
   color: rgba(255, 255, 255, 0.4);
   font-size: 24px;
   font-weight: 500;
-  line-height: 1.5; /* 增加行高适配换行 */
+  line-height: 1.3; /* 增加行高适配换行 */
   cursor: pointer;
   transition: all 1s cubic-bezier(0.25, 1, 0.5, 1);
   text-align: left;
