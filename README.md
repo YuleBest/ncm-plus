@@ -1,54 +1,89 @@
-# ncm-plus
+# NCM Plus
 
-This template should help get you started developing with Vue 3 in Vite.
+一个基于 Vue 3 的云音乐第三方 Web 客户端，使用公开 API 提供音乐播放、搜索、歌手/专辑/歌单浏览等功能。
 
-## Recommended IDE Setup
+## TODO
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+**已实现**
 
-## Recommended Browser Setup
+- [x] 首页 — 精品歌单推荐 + 榜单预览
+- [x] 播放器 — 全屏播放、歌词跟唱、Mini 播放器悬浮
+- [x] 音质选择 — 标准 / 较高 / 极高，偏好持久化
+- [x] 搜索 — 实时建议、热搜榜、四标签页结果（歌曲 / 歌手 / 歌单 / 专辑）、分页加载
+- [x] 歌单详情 — 封面信息、完整曲目列表、分页加载
+- [x] 歌手详情 — 热门歌曲与专辑标签页切换
+- [x] 专辑详情 — 封面元信息、曲目列表、跳转歌手
+- [x] 榜单页 — 所有官方榜单展示
+- [x] 暗色 / 亮色主题切换
+- [x] 评论区
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+**待实现**
 
-## Type Support for `.vue` Imports in TS
+- [ ] 登录
+- [ ] 每日推荐（需登录）
+- [ ] 收藏 / 取消收藏歌曲、歌单
+- [ ] 播放队列面板
+- [ ] 历史播放记录
+- [ ] MV / 视频页面
+- [ ] 用户主页
+- [ ] ...
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
+## 技术栈
 
-## Customize configuration
+| 层       | 选型                                               |
+| -------- | -------------------------------------------------- |
+| 框架     | Vue 3 + `<script setup>`                           |
+| 路由     | vue-router 5 + unplugin-vue-router（文件系统路由） |
+| 状态     | Pinia                                              |
+| 请求     | Axios                                              |
+| 图标     | lucide-vue-next                                    |
+| 样式     | SCSS + CSS 变量（暗色 / 亮色双主题）               |
+| 构建     | Vite                                               |
+| 类型检查 | vue-tsc                                            |
+| Lint     | ESLint + oxlint + Prettier                         |
 
-See [Vite Configuration Reference](https://vite.dev/config/).
+**后端 API**：自托管 [NeteaseCloudMusicApi](https://github.com/Binaryify/NeteaseCloudMusicApi)，接口地址在 `src/api/request.ts` 中配置。
 
-## Project Setup
+## 快速开始
 
-```sh
+**环境要求**：Node.js ^20.19.0 或 >=22.12.0，包管理器使用 pnpm。
+
+```bash
+# 安装依赖
 pnpm install
-```
 
-### Compile and Hot-Reload for Development
-
-```sh
+# 开发模式（热重载）
 pnpm dev
-```
 
-### Type-Check, Compile and Minify for Production
-
-```sh
+# 类型检查 + 生产构建
 pnpm build
+
+# 预览生产产物
+pnpm preview
 ```
 
-### Run Unit Tests with [Vitest](https://vitest.dev/)
+## 项目结构
 
-```sh
-pnpm test:unit
+```
+src/
+├── api/          # 接口定义（按模块拆分）
+├── components/
+├── layouts/
+├── pages/        # 文件系统路由页面
+├── stores/       # Pinia stores
+├── styles/       # 全局样式与设计 Token
+└── utils/        # 工具函数
 ```
 
-### Lint with [ESLint](https://eslint.org/)
+## 开发命令
 
-```sh
-pnpm lint
+```bash
+pnpm lint          # 运行 ESLint + oxlint 并自动修复
+pnpm format        # Prettier 格式化 src/
+pnpm test:unit     # Vitest 单元测试
+pnpm type-check    # vue-tsc 类型检查
 ```
+
+## 说明
+
+本项目仅用于学习和技术探索，不用于商业用途。音乐版权归版权方所有。
