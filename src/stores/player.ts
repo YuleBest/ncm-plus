@@ -340,7 +340,7 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   // 下一首
-  const nextSong = (isAuto = false) => {
+  const nextSong = (_isAuto = false) => {
     if (playlist.value.length === 0) return
     if (playlist.value.length === 1) {
       audio.currentTime = 0
