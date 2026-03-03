@@ -113,6 +113,7 @@ watch(
 
 const handleSeekStart = () => {
   isDragging.value = true
+  isUserScrolling.value = false
 }
 
 const handleSeekEnd = () => {
@@ -124,6 +125,23 @@ const handleSeekEnd = () => {
 // 显示给 UI 的播放进度时间：如果在拖拽中则优先显示临时时间
 const displayTime = computed(() => {
   return isDragging.value ? dragTime.value : playerStore.currentTime
+})
+
+// UI 显示的歌词索引：拖拽时根据拖拽时间计算，否则跟随播放器
+const displayLyricIndex = computed(() => {
+  if (isDragging.value) {
+    const timeInMs = dragTime.value * 1000
+    const lyrics = playerStore.lyrics
+    if (!lyrics || lyrics.length === 0) return -1
+
+    let l_index = lyrics.findIndex((l) => l.time > timeInMs) - 1
+    if (l_index < 0) {
+      const firstLyricTime = lyrics[0]?.time ?? 0
+      l_index = timeInMs < firstLyricTime ? 0 : lyrics.length - 1
+    }
+    return l_index
+  }
+  return playerStore.currentLyricIndex
 })
 
 // 进度条百分比
@@ -159,10 +177,25 @@ const handleCoverClick = () => {
   }
 }
 
+const handleLyricLineClick = (timeMs: number, index: number) => {
+  if (touchState.isMoved) return
+
+  if (isUserScrolling.value || index !== displayLyricIndex.value) {
+    playerStore.seek(timeMs / 1000)
+    isUserScrolling.value = false
+    if (scrollResumeTimer) {
+      clearTimeout(scrollResumeTimer)
+      scrollResumeTimer = null
+    }
+  } else {
+    isMobileCoverMode.value = true
+  }
+}
+
 const shortLyrics = computed(() => {
   const lyrics = playerStore.lyrics
   if (!lyrics || lyrics.length === 0) return []
-  const current = playerStore.currentLyricIndex < 0 ? 0 : playerStore.currentLyricIndex
+  const current = displayLyricIndex.value < 0 ? 0 : displayLyricIndex.value
   const lines = []
   for (let i = current - 1; i <= current + 1; i++) {
     if (i >= 0 && i < lyrics.length) {
@@ -193,7 +226,7 @@ const handleUserScrollInteraction = () => {
 }
 
 const scrollToCurrentLyric = (instant = false) => {
-  if (!lyricListRef.value || playerStore.currentLyricIndex < 0 || isUserScrolling.value) return
+  if (!lyricListRef.value || displayLyricIndex.value < 0 || isUserScrolling.value) return
   nextTick(() => {
     // 稍加延迟，确保 display:none 恢复后的 clientHeight 计算正确
     setTimeout(() => {
@@ -214,8 +247,8 @@ const scrollToCurrentLyric = (instant = false) => {
 
 // 响应歌词行的变化，自动滚动到正中央
 watch(
-  () => playerStore.currentLyricIndex,
-  () => scrollToCurrentLyric(false),
+  () => displayLyricIndex.value,
+  () => scrollToCurrentLyric(isDragging.value),
 )
 
 // 切换大封面模式时，如果回到歌词也立即定位
@@ -332,7 +365,7 @@ const cycleQuality = () => {
             :key="line.originalIndex"
             class="short-lyric-line"
             :class="{
-              active: line.originalIndex === playerStore.currentLyricIndex,
+              active: line.originalIndex === displayLyricIndex,
               'empty-line': line.text === ' ',
             }"
           >
@@ -467,12 +500,13 @@ const cycleQuality = () => {
               :key="index"
               class="lyric-line"
               :class="{
-                active: playerStore.currentLyricIndex === index,
+                active: displayLyricIndex === index,
                 'has-trans': !!line.translation,
               }"
               :style="{
-                '--distance': Math.abs(index - playerStore.currentLyricIndex),
+                '--distance': Math.abs(index - displayLyricIndex),
               }"
+              @click.stop="handleLyricLineClick(line.time, index)"
             >
               <template v-if="line.translation">
                 <div class="lyric-trans">{{ line.translation }}</div>
@@ -1077,13 +1111,14 @@ const cycleQuality = () => {
   font-size: 24px;
   font-weight: 500;
   line-height: 1.5; /* 增加行高适配换行 */
+  cursor: pointer;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   text-align: left;
   transform-origin: left center;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-width: 80%; /* 设置最大宽度允许换行 */
+  max-width: 85%; /* 设置最大宽度允许换行 */
   word-wrap: break-word;
   word-break: break-word;
 
@@ -1103,8 +1138,6 @@ const cycleQuality = () => {
 .lyric-line.active {
   color: #fff;
   font-weight: 600;
-  max-width: 88%; /* 80% * 1.1 */
-  /* 桌面端不再使用极大的 font-size 变化，改用微调和颜色区分，或者保持 transform 比例 */
   transform: scale(1.1);
   filter: blur(0); /* 激活时去除模糊 */
   opacity: 1;
@@ -1178,9 +1211,9 @@ const cycleQuality = () => {
   }
   .mobile-square-cover {
     width: 85vw;
-    max-width: 320px;
+    max-width: 270px;
     height: 85vw;
-    max-height: 320px;
+    max-height: 270px;
     border-radius: 12px;
     object-fit: cover;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
@@ -1234,7 +1267,6 @@ const cycleQuality = () => {
     gap: 10px;
   }
   .lyric-line.active {
-    font-size: 24px;
     transform: scale(1.1);
   }
   .lyric-line.active .lyric-original {
