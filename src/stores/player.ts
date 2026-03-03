@@ -75,6 +75,22 @@ export const usePlayerStore = defineStore('player', () => {
     localStorage.setItem('ncm-play-mode', mode)
   }
 
+  // 歌词时间调整（提前或延后），默认提前 0.2 秒
+  const lyricOffset = ref<number>(parseFloat(localStorage.getItem('ncm-lyric-offset') || '0.2'))
+  const setLyricOffset = (offset: number) => {
+    lyricOffset.value = offset
+    localStorage.setItem('ncm-lyric-offset', offset.toString())
+    // 立即刷新歌词位置
+    updateLyricIndex(audio.currentTime * 1000)
+  }
+
+  // 歌词字体大小调整倍数
+  const lyricScale = ref<number>(parseFloat(localStorage.getItem('ncm-lyric-scale') || '1.0'))
+  const setLyricScale = (scale: number) => {
+    lyricScale.value = scale
+    localStorage.setItem('ncm-lyric-scale', scale.toString())
+  }
+
   // 歌词数据
   const lyrics = ref<ParsedLyric[]>([])
   const currentLyricIndex = ref(0)
@@ -489,10 +505,11 @@ export const usePlayerStore = defineStore('player', () => {
   const updateLyricIndex = (timeInMs: number) => {
     if (lyrics.value.length === 0) return
 
-    let l_index = lyrics.value.findIndex((l) => l.time > timeInMs) - 1
+    const adjustedTime = timeInMs + lyricOffset.value * 1000
+    let l_index = lyrics.value.findIndex((l) => l.time > adjustedTime) - 1
     if (l_index < 0) {
       const firstLyricTime = lyrics.value[0]?.time ?? 0
-      l_index = timeInMs < firstLyricTime ? 0 : lyrics.value.length - 1
+      l_index = adjustedTime < firstLyricTime ? 0 : lyrics.value.length - 1
     }
     currentLyricIndex.value = l_index
   }
@@ -600,6 +617,8 @@ export const usePlayerStore = defineStore('player', () => {
     currentPlaylistIndex,
     lyrics,
     currentLyricIndex,
+    lyricOffset,
+    lyricScale,
     isLoading,
     errorMessage,
     playSong,
@@ -613,6 +632,8 @@ export const usePlayerStore = defineStore('player', () => {
     seek,
     setVolume,
     setTargetQuality,
+    setLyricOffset,
+    setLyricScale,
     unlock,
     isPlayerOpen,
     openPlayer,

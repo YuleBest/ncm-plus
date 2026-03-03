@@ -12,10 +12,12 @@ import {
   Repeat,
   Repeat1,
   Shuffle,
+  Settings,
 } from 'lucide-vue-next'
 import { usePlayerStore } from '@/stores/player'
 import CommentPanel from '@/components/player/CommentPanel.vue'
 import PlaylistPanel from '@/components/player/PlaylistPanel.vue'
+import SettingsPanel from '@/components/player/SettingsPanel.vue'
 import { getSongDetail as getRedCount } from '@/api/song/red/count'
 import { ref, watch, nextTick, computed, onMounted } from 'vue'
 import { formatSeconds as formatTime } from '@/utils/format'
@@ -27,6 +29,7 @@ const playerStore = usePlayerStore()
 // 面板状态
 const showComments = ref(false)
 const showPlaylist = ref(false)
+const showSettings = ref(false)
 const commentCount = ref(0)
 const heartCountDesc = ref('')
 
@@ -143,7 +146,7 @@ const displayTime = computed(() => {
 // UI 显示的歌词索引：拖拽时根据拖拽时间计算，否则跟随播放器
 const displayLyricIndex = computed(() => {
   if (isDragging.value) {
-    const timeInMs = dragTime.value * 1000
+    const timeInMs = dragTime.value * 1000 + playerStore.lyricOffset * 1000
     const lyrics = playerStore.lyrics
     if (!lyrics || lyrics.length === 0) return -1
 
@@ -221,7 +224,7 @@ const shortLyrics = computed(() => {
 })
 
 // 逐字歌词：当前播放毫秒数（用于字级高亮）
-const currentTimeMs = computed(() => playerStore.currentTime * 1000)
+const currentTimeMs = computed(() => (playerStore.currentTime + playerStore.lyricOffset) * 1000)
 
 const getWordClass = (word: { startTime: number; duration: number }) => {
   const t = currentTimeMs.value
@@ -325,15 +328,25 @@ const cycleQuality = () => {
         </div>
       </div>
 
-      <!-- 音质切换 -->
-      <div class="quality-switcher" @click="cycleQuality">
-        <span class="quality-badge">{{ qualityLabelMap[playerStore.targetQuality] }}</span>
-        <span
-          class="quality-actual"
-          v-if="playerStore.currentQuality !== playerStore.targetQuality"
+      <!-- 音质切换与设置 -->
+      <div class="header-right-actions">
+        <div class="quality-switcher" @click="cycleQuality">
+          <span class="quality-badge">{{ qualityLabelMap[playerStore.targetQuality] }}</span>
+          <span
+            class="quality-actual"
+            v-if="playerStore.currentQuality !== playerStore.targetQuality"
+          >
+            (实际: {{ qualityLabelMap[playerStore.currentQuality] }})
+          </span>
+        </div>
+        <button
+          class="nav-btn desktop-only"
+          @click="showSettings = true"
+          title="播放设置"
+          style="padding: 4px"
         >
-          (实际: {{ qualityLabelMap[playerStore.currentQuality] }})
-        </span>
+          <Settings :size="20" color="rgba(255,255,255,0.8)" />
+        </button>
       </div>
     </header>
 
@@ -406,10 +419,15 @@ const cycleQuality = () => {
 
           <!-- 评论入口 (移动端) -->
           <div class="comment-row-mobile">
-            <button class="comment-trigger-mobile" @click="showComments = true">
-              <MessageCircle :size="17" />
-              <span v-if="fmtCommentBadge" class="comment-fab-badge">{{ fmtCommentBadge }}</span>
-            </button>
+            <div class="comment-row-left">
+              <button class="comment-trigger-mobile" @click="showComments = true">
+                <MessageCircle :size="17" />
+                <span v-if="fmtCommentBadge" class="comment-fab-badge">{{ fmtCommentBadge }}</span>
+              </button>
+              <button class="comment-trigger-mobile" @click="showSettings = true">
+                <Settings :size="17" />
+              </button>
+            </div>
             <div class="mobile-heart-stat" v-if="heartCountDesc">
               <Heart :size="12" fill="currentColor" class="stat-heart" />
               <span>{{ heartCountDesc }}</span>
@@ -544,6 +562,7 @@ const cycleQuality = () => {
               }"
               :style="{
                 '--distance': Math.abs(index - displayLyricIndex),
+                '--lyric-scale': playerStore.lyricScale,
               }"
               @click.stop="handleLyricLineClick(line.time, index)"
             >
@@ -626,6 +645,9 @@ const cycleQuality = () => {
 
   <!-- 播放列表面板 -->
   <PlaylistPanel :visible="showPlaylist" @close="showPlaylist = false" />
+
+  <!-- 设置面板 -->
+  <SettingsPanel :visible="showSettings" @close="showSettings = false" />
 </template>
 
 <style lang="scss" scoped>
@@ -787,6 +809,11 @@ const cycleQuality = () => {
   }
 }
 
+.header-right-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .quality-switcher {
   display: flex;
   flex-direction: column;
@@ -1060,6 +1087,12 @@ const cycleQuality = () => {
     justify-content: space-between;
   }
 
+  .comment-row-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
   .comment-trigger-mobile {
     display: flex;
     align-items: center;
@@ -1166,7 +1199,7 @@ const cycleQuality = () => {
 }
 .lyric-line {
   color: rgba(255, 255, 255, 0.4);
-  font-size: 24px;
+  font-size: calc(24px * var(--lyric-scale, 1));
   font-weight: 500;
   line-height: 1.3; /* 增加行高适配换行 */
   cursor: pointer;
@@ -1202,10 +1235,10 @@ const cycleQuality = () => {
 }
 .lyric-line.active .lyric-original {
   color: rgba(255, 255, 255, 0.7);
-  font-size: 18px;
+  font-size: calc(18px * var(--lyric-scale, 1));
 }
 .lyric-original {
-  font-size: 16px;
+  font-size: calc(16px * var(--lyric-scale, 1));
   font-weight: 400;
   color: rgba(255, 255, 255, 0.3);
   transition: all 0.6s cubic-bezier(0.25, 1, 0.5, 1);
@@ -1335,7 +1368,7 @@ const cycleQuality = () => {
     padding: 30% 0 30% 0;
   }
   .lyric-line {
-    font-size: 20px;
+    font-size: calc(20px * var(--lyric-scale, 1));
     text-align: left;
     transform-origin: left center;
     gap: 10px;
@@ -1344,7 +1377,7 @@ const cycleQuality = () => {
     transform: scale(1.1);
   }
   .lyric-line.active .lyric-original {
-    font-size: 16px;
+    font-size: calc(16px * var(--lyric-scale, 1));
   }
   .lyric-empty {
     justify-content: flex-start;
