@@ -2,11 +2,18 @@
 import PlayPage from '@/pages/play.vue'
 import { usePlayerStore } from '@/stores/player'
 import { useThemeStore } from '@/stores/theme'
+import { useUserStore } from '@/stores/user'
+import { onMounted } from 'vue'
 
 // 初始化主题 store，与 index.html 阻塞脚本写入的 class 同步
 useThemeStore()
 
 const playerStore = usePlayerStore()
+const userStore = useUserStore()
+
+onMounted(() => {
+  userStore.checkLogin()
+})
 </script>
 
 <template>

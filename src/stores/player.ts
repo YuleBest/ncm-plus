@@ -18,7 +18,16 @@ export interface ParsedLyric {
   words?: ParsedLyricWord[] // 逐字歌词（来自 yrc），无此字段时为逐行歌词
 }
 
-export type AudioQuality = 'standard' | 'higher' | 'exhigh'
+export type AudioQuality =
+  | 'standard'
+  | 'higher'
+  | 'exhigh'
+  | 'lossless'
+  | 'hires'
+  | 'jyeffect'
+  | 'sky'
+  | 'dolby'
+  | 'jymaster'
 export type PlayMode = 'list' | 'single' | 'random'
 
 /** 解析标准 LRC 格式，返回 { time, text } 列表（供 parseLyric / parseYrcLyric 共用） */
@@ -164,7 +173,17 @@ export const usePlayerStore = defineStore('player', () => {
       return { url: urlCache.get(exactCacheKey)!, level: target }
     }
 
-    const levels: AudioQuality[] = ['exhigh', 'higher', 'standard']
+    const levels: AudioQuality[] = [
+      'jymaster',
+      'dolby',
+      'sky',
+      'jyeffect',
+      'hires',
+      'lossless',
+      'exhigh',
+      'higher',
+      'standard',
+    ]
     const startIndex = levels.indexOf(target)
     const fallbackLevels = levels.slice(startIndex !== -1 ? startIndex : 0)
 

@@ -14,17 +14,19 @@ import {
   Shuffle,
   Settings,
 } from 'lucide-vue-next'
-import { usePlayerStore } from '@/stores/player'
+import { usePlayerStore, type AudioQuality } from '@/stores/player'
 import CommentPanel from '@/components/player/CommentPanel.vue'
 import PlaylistPanel from '@/components/player/PlaylistPanel.vue'
 import SettingsPanel from '@/components/player/SettingsPanel.vue'
-import { getSongDetail as getRedCount } from '@/api/song/red/count'
 import { ref, watch, nextTick, computed, onMounted } from 'vue'
 import { formatSeconds as formatTime } from '@/utils/format'
+import { useUserStore } from '@/stores/user'
+import { getSongDetail as getRedCount } from '@/api/song/red/count'
 
 const route = useRoute()
 const router = useRouter()
 const playerStore = usePlayerStore()
+const userStore = useUserStore()
 
 // 面板状态
 const showComments = ref(false)
@@ -283,20 +285,38 @@ watch(isMobileCoverMode, (newVal) => {
     scrollToCurrentLyric(true)
   }
 })
-
-const qualityLabelMap = {
+const qualityLabelMap: Record<AudioQuality, string> = {
+  jymaster: '超清母带',
+  dolby: '杜比全景声',
+  sky: '沉浸环绕声',
+  jyeffect: '高清环绕声',
+  hires: 'Hi-Res',
+  lossless: '无损',
   exhigh: '极高',
   higher: '较高',
   standard: '标准',
-} as const
+}
 
-const cycleQuality = () => {
-  const map: Record<'standard' | 'higher' | 'exhigh', 'standard' | 'higher' | 'exhigh'> = {
-    exhigh: 'higher',
-    higher: 'standard',
-    standard: 'exhigh',
-  }
-  playerStore.setTargetQuality(map[playerStore.targetQuality])
+const qualityList: AudioQuality[] = [
+  'jymaster',
+  'dolby',
+  'sky',
+  'jyeffect',
+  'hires',
+  'lossless',
+  'exhigh',
+  'higher',
+  'standard',
+]
+
+const showQualityMenu = ref(false)
+const hasVip = computed(() => userStore.isLogin && !!userStore.profile?.vipType)
+const isVipQuality = (q: string) => !['standard', 'higher', 'exhigh'].includes(q)
+
+const selectQuality = (q: AudioQuality) => {
+  if (isVipQuality(q) && !hasVip.value) return
+  playerStore.setTargetQuality(q)
+  showQualityMenu.value = false
 }
 </script>
 
@@ -330,14 +350,42 @@ const cycleQuality = () => {
 
       <!-- 音质切换与设置 -->
       <div class="header-right-actions">
-        <div class="quality-switcher" @click="cycleQuality">
-          <span class="quality-badge">{{ qualityLabelMap[playerStore.targetQuality] }}</span>
-          <span
-            class="quality-actual"
-            v-if="playerStore.currentQuality !== playerStore.targetQuality"
-          >
-            (实际: {{ qualityLabelMap[playerStore.currentQuality] }})
-          </span>
+        <div class="quality-wrapper">
+          <div class="quality-switcher" @click="showQualityMenu = !showQualityMenu">
+            <span class="quality-badge">
+              {{ qualityLabelMap[playerStore.targetQuality] }}
+              <ChevronDown
+                :size="10"
+                style="display: inline-block; vertical-align: middle; margin-left: 2px"
+              />
+            </span>
+            <span
+              class="quality-actual"
+              v-if="playerStore.currentQuality !== playerStore.targetQuality"
+            >
+              (实际: {{ qualityLabelMap[playerStore.currentQuality] }})
+            </span>
+          </div>
+
+          <!-- 下拉面板蒙层 -->
+          <div class="quality-mask" v-if="showQualityMenu" @click="showQualityMenu = false"></div>
+
+          <!-- 音质下拉菜单 -->
+          <div class="quality-menu" v-if="showQualityMenu">
+            <div
+              v-for="q in qualityList"
+              :key="q"
+              class="quality-option"
+              :class="{
+                active: playerStore.targetQuality === q,
+                disabled: isVipQuality(q) && !hasVip,
+              }"
+              @click="selectQuality(q)"
+            >
+              <span>{{ qualityLabelMap[q] }}</span>
+              <span v-if="isVipQuality(q)" class="vip-tag">VIP</span>
+            </div>
+          </div>
         </div>
         <button
           class="nav-btn desktop-only"
@@ -413,7 +461,13 @@ const cycleQuality = () => {
           <div class="error-toast" v-if="playerStore.errorMessage">
             {{ playerStore.errorMessage }}
           </div>
-          <div class="trial-notice" v-if="playerStore.currentSong.fee === 1">
+          <div
+            class="trial-notice"
+            v-if="
+              playerStore.currentSong.fee === 1 &&
+              (!userStore.isLogin || !userStore.profile?.vipType)
+            "
+          >
             VIP 歌曲，当前仅支持试听前 30 秒
           </div>
 
@@ -813,6 +867,64 @@ const cycleQuality = () => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+.quality-wrapper {
+  position: relative;
+}
+.quality-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+}
+.quality-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 8px;
+  background: rgba(40, 40, 40, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 8px 0;
+  min-width: 140px;
+  z-index: 100;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+}
+.quality-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover:not(.disabled) {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+  }
+
+  &.active {
+    color: var(--color-primary);
+    font-weight: 500;
+  }
+
+  &.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .vip-tag {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--color-primary);
+    border: 1px solid var(--color-primary);
+    padding: 0 4px;
+    border-radius: 4px;
+    line-height: 1.4;
+  }
 }
 .quality-switcher {
   display: flex;
