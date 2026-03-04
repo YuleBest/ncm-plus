@@ -1,7 +1,15 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import { Menu as iMenu, Search as iSearch, Home as iHome, Moon, Sun } from 'lucide-vue-next'
+import {
+  Menu as iMenu,
+  Search as iSearch,
+  Home as iHome,
+  Moon,
+  Sun,
+  User as iUser,
+} from 'lucide-vue-next'
 import { useThemeStore } from '@/stores/theme'
+import { useUserStore } from '@/stores/user'
 
 defineEmits<{
   (e: 'toggle-sidebar'): void
@@ -9,9 +17,18 @@ defineEmits<{
 
 const router = useRouter()
 const themeStore = useThemeStore()
+const userStore = useUserStore()
 
 const goToSearch = () => router.push('/search')
 const goToHome = () => router.push('/')
+
+const goToUser = () => {
+  if (userStore.isLogin && userStore.profile?.userId) {
+    router.push(`/user/${userStore.profile.userId}`)
+  } else {
+    router.push('/login')
+  }
+}
 </script>
 
 <template>
@@ -32,6 +49,21 @@ const goToHome = () => router.push('/')
     <div class="top-bar-middle"></div>
 
     <div class="right-actions">
+      <!-- 用户头像/登录 -->
+      <button
+        class="icon-button user-avatar-btn"
+        @click="goToUser"
+        :title="userStore.isLogin ? '个人主页' : '去登录'"
+      >
+        <img
+          v-if="userStore.isLogin && userStore.profile?.avatarUrl"
+          :src="`${userStore.profile.avatarUrl}?param=40y40`"
+          alt="Avatar"
+          class="avatar-img"
+        />
+        <iUser v-else :size="20" />
+      </button>
+
       <!-- 暗色 / 亮色切换 -->
       <button
         class="icon-button theme-toggle"
@@ -93,5 +125,16 @@ const goToHome = () => router.push('/')
 .theme-icon-leave-to {
   opacity: 0;
   transform: rotate(30deg) scale(0.7);
+}
+
+.user-avatar-btn {
+  padding: 4px;
+}
+
+.avatar-img {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
 }
 </style>
