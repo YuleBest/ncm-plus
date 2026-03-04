@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, computed } from 'vue'
-import { ListMusic, Repeat, Repeat1, Shuffle, Trash2, X, Volume2 } from 'lucide-vue-next'
+import { Repeat, Repeat1, Shuffle, Trash2, X, Volume2 } from 'lucide-vue-next'
 import { usePlayerStore } from '@/stores/player'
 
 const props = defineProps<{

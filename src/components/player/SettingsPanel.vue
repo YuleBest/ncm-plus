@@ -3,7 +3,7 @@ import { ref, watch } from 'vue'
 import { X, Settings } from 'lucide-vue-next'
 import { usePlayerStore } from '@/stores/player'
 
-const props = defineProps<{
+defineProps<{
   visible: boolean
 }>()
 

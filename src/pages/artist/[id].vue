@@ -2,14 +2,16 @@
 defineOptions({ name: 'ArtistPage' })
 import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ChevronLeft, Play, Music2, Disc3, Video, Disc } from 'lucide-vue-next'
+import { ChevronLeft, Play, Music2, Disc3, Video, Users } from 'lucide-vue-next'
 import { GetArtists, type GetArtistsResponse } from '@/api/artists'
 import { getArtistAlbums, type ArtistAlbum } from '@/api/artist/album'
+import { GetArtistFollowCount } from '@/api/artist/follow/count'
 import { usePlayerStore } from '@/stores/player'
 import { type SongDetail } from '@/api/song/detail'
 import HomeLayout from '@/layouts/Home.vue'
 import LoadingSpinner from '@/components/ui/LoadingSpinner.vue'
 import SongItem from '@/components/song/SongItem.vue'
+import { formatPlayCount } from '@/utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -20,6 +22,7 @@ const isLoading = ref(true)
 const artistData = ref<GetArtistsResponse | null>(null)
 
 const albums = ref<ArtistAlbum[]>([])
+const followCount = ref(0)
 const isAlbumsLoading = ref(false)
 const hasMoreAlbums = ref(false)
 const albumsPage = ref(0)
@@ -76,6 +79,19 @@ const fetchAlbums = async (reset = false) => {
   }
 }
 
+const fetchFollowCount = async () => {
+  const id = artistId.value
+  if (!id) return
+  try {
+    const res = await GetArtistFollowCount({ id })
+    if (res.data) {
+      followCount.value = res.data.data.fansCnt
+    }
+  } catch (err) {
+    console.error('Failed to load artist follow count:', err)
+  }
+}
+
 const loadMoreAlbums = () => {
   albumsPage.value++
   fetchAlbums()
@@ -101,6 +117,7 @@ watch(
     if (id) {
       fetchArtist()
       fetchAlbums(true)
+      fetchFollowCount()
     }
   },
   { immediate: true },
@@ -156,6 +173,12 @@ watch(
         <div class="mobile-meta">
           <div class="artist-stats">
             <div class="stat-item">
+              <Users :size="13" class="stat-icon" />
+              <span class="stat-num">{{ formatPlayCount(followCount) }}</span>
+              <span class="stat-label">粉丝</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-item">
               <Music2 :size="13" class="stat-icon" />
               <span class="stat-num">{{ artistInfo.musicSize }}</span>
               <span class="stat-label">单曲</span>
@@ -165,12 +188,6 @@ watch(
               <Disc3 :size="13" class="stat-icon" />
               <span class="stat-num">{{ artistInfo.albumSize }}</span>
               <span class="stat-label">专辑</span>
-            </div>
-            <div class="stat-divider"></div>
-            <div class="stat-item">
-              <Video :size="13" class="stat-icon" />
-              <span class="stat-num">{{ artistInfo.mvSize }}</span>
-              <span class="stat-label">MV</span>
             </div>
           </div>
           <p v-if="artistInfo.briefDesc" class="brief-desc">{{ artistInfo.briefDesc }}</p>
@@ -199,6 +216,12 @@ watch(
             <p v-if="artistSubTitle" class="artist-sub">{{ artistSubTitle }}</p>
 
             <div class="artist-stats">
+              <div class="stat-item">
+                <Users :size="13" class="stat-icon" />
+                <span class="stat-num">{{ formatPlayCount(followCount) }}</span>
+                <span class="stat-label">粉丝</span>
+              </div>
+              <div class="stat-divider"></div>
               <div class="stat-item">
                 <Music2 :size="13" class="stat-icon" />
                 <span class="stat-num">{{ artistInfo.musicSize }}</span>

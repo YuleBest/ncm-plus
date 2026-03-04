@@ -245,8 +245,8 @@ defineEmits<{
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  flex-shrink: 1;
-  min-width: 0;
+  flex-shrink: 0;
+  max-width: 100%;
   transition: color var(--transition-base);
 }
 
@@ -254,7 +254,9 @@ defineEmits<{
   font-size: 13px;
   color: var(--color-text-tertiary);
   white-space: nowrap;
-  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
   transition: color var(--transition-base);
 }
 
